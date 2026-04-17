@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>STAT 4310 Regression Project</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda" />
+    <meta name="date" content="2026-04-17" />
+    <script src="RegressionPresentation_files/header-attrs-2.30/header-attrs.js"></script>
+    <link href="RegressionPresentation_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="project-presentation.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# STAT 4310 Regression Project
+]
+.author[
+### Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda
+]
+.date[
+### 2026-04-17
+]
+
+---
+
+
+
+
+
+
+class: center, middle, inverse
+
+# STAT 4310 Regression Project
+
+## Part I: Two Regression Datasets
+## Part II: Finance Application
+
+&lt;span class="accent"&gt;HousePrices, CASchools, and a 5-stock NYSE portfolio&lt;/span&gt;
+
+---
+
+## Roadmap
+
+- Part I uses two medium-sized datasets with optimal-model workflows.
+- Part II uses five NYSE stocks from different industries plus the
+  S&amp;P 500 benchmark.
+- Every section shows methods, interim process steps, diagnostics,
+  extra validation, and final interpretation.
+
+---
+
+class: small-table compact
+
+## Part I: Regression Methods
+
+
+|Step                   |Method                               |
+|:----------------------|:------------------------------------|
+|1. Describe data       |response, predictors, missingness    |
+|2. Split Train/Test    |80% / 20%                            |
+|3. Build full model    |lm()                                 |
+|4. Build CV ladder     |nested backward models + repeated CV |
+|5. Compare AIC vs CV   |AIC-optimal vs CV-optimal            |
+|6. Remove outliers     |Cook's distance                      |
+|7. Check sensitivity   |before vs after Cook filtering       |
+|8. Check residuals     |QQ, BP, and DW tests                 |
+|9. Bootstrap intervals |bootstrap coefficient CIs            |
+|10. Predict new cases  |confidence and prediction intervals  |
+
+---
+
+## HousePrices: Dataset Snapshot
+
+.pull-left[
+- `546` observations and `12` variables
+- Response: `price`
+- `lotsize`: lot size of the house
+- `bedrooms`, `bathrooms`, `stories`, `garage`: size/layout features
+- `driveway`, `recreation`, `fullbase`, `gasheat`, `aircon`, `prefer`:
+  yes/no housing amenities or location preference indicators
+- Missing values: `0`
+- The mix of structural and amenity variables makes the dataset useful
+  for both interpretation and prediction.
+]
+
+.pull-right[
+
+|Item    | Value|
+|:-------|-----:|
+|Rows    |   546|
+|Columns |    12|
+|Missing |     0|
+]
+
+---
+
+class: plot-slide
+
+## HousePrices: Exploratory Overview
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-4-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Price is right-skewed: most homes are modestly priced with a long tail of high-value sales.
+- Lot size and price have a positive association, but with wide spread showing other features matter too.
+- Bedroom count alone is a weak predictor — amenity combinations are more informative.
+
+---
+
+class: small-table
+
+## HousePrices: Interim Process
+
+
+|Step                |Detail                      |
+|:-------------------|:---------------------------|
+|Split data          |448 train / 98 test         |
+|Build full model    |11 starting predictors      |
+|Build model ladder  |11 nested steps             |
+|Run repeated CV     |5 folds x 6 repeats         |
+|Compare AIC and CV  |Step 0 vs Step 1            |
+|Remove outliers     |36 points above Cook cutoff |
+|Check residuals     |QQ, BP, and DW tests        |
+|Bootstrap intervals |200 bootstrap resamples     |
+|Predict new homes   |2 cases with CI and PI      |
+
+- The ordering matters: choose the model on training data, check
+  influential cases, then touch the held-out test set only once.
+
+---
+
+class: plot-slide
+
+## HousePrices: CV Across the Selection Ladder
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-6-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- `S0` is the full model.
+- Each later step removes one more predictor from a nested ladder.
+- Each step shows `30` validation RMSE values because we run `5` folds
+  and repeat that `6` times.
+- The red dashed line marks the AIC-selected step's mean CV RMSE.
+- The green point marks the true CV minimum, which is `S1` here.
+- One early predictor removal improves validation RMSE, but additional
+  trimming starts to give up signal.
+
+---
+
+class: small-table
+
+## HousePrices: AIC Step vs CV Step
+
+
+|Model       |Best Step | Predictors|  CV RMSE|
+|:-----------|:---------|----------:|--------:|
+|AIC-optimal |Step 0    |         11| 15800.09|
+|CV-optimal  |Step 1    |         10| 15773.42|
+
+- AIC and CV are compared on the same training-set ladder.
+- The held-out 20% test set is used only for the final check.
+- For `HousePrices`, the CV gap is only 26.66, so the test
+  flip of 234.64 is normal one-split noise rather than a
+  contradiction.
+- In practice, both criteria are pointing to nearly the same part of the
+  ladder rather than arguing for very different housing models.
+
+---
+
+class: small-table
+
+## HousePrices: Sensitivity to Cook Filtering
+
+
+|Training Data Used          |AIC Best Step | AIC RMSE|CV Best Step |  CV RMSE|
+|:---------------------------|:-------------|--------:|:------------|--------:|
+|Original training data      |Step 0        | 15800.09|Step 1       | 15773.42|
+|Cook-filtered training data |Step 1        | 11525.72|Step 1       | 11525.72|
+
+- The upper table asks whether influential sales change model choice or
+  mostly change the size of the validation error.
+
+
+|Training Data Used          |AIC Best Step |CV Best Step |Held-out Test RMSE             |
+|:---------------------------|:-------------|:------------|:------------------------------|
+|Original training data      |Step 0        |Step 1       |AIC 15361.11, CV 15595.75      |
+|Cook-filtered training data |Step 1        |Step 1       |15195.88 (same for AIC and CV) |
+
+- In the upper table, both RMSE columns are repeated-CV validation RMSE.
+- In the lower table, the RMSE is computed on the held-out 20% test set
+  by comparing predictions to the actual observed response values.
+- When AIC and CV pick the same step, that test RMSE is shown once.
+- After Cook filtering, the validation error drops without changing the
+  overall selection story.
+
+---
+
+class: small-table plot-slide
+
+## HousePrices: CV Ladder Before and After Cook Filtering
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The whole ladder shifts down after filtering, so the influential cases
+  were hurting validation performance across multiple candidate models.
+- Because the whole curve moves down, Cook filtering improves model
+  stability rather than just rescuing one lucky final step.
+
+---
+
+class: small-table compact
+
+## HousePrices: Final Model Summary
+
+- Final predictors kept:
+
+lotsize, bedrooms, bathrooms, stories, driveway, recreation, fullbase, gasheat, aircon, garage, prefer
+
+- Removed from full model:
+
+None from the full model
+
+- The final model keeps the variables that most directly describe usable
+  house characteristics and preferred location.
+- Because no term drops from the full model, the main housing features
+  appear to add complementary signal rather than redundant overlap.
+
+
+|Metric           |      Value|
+|:----------------|----------:|
+|Adjusted R2      |     0.7418|
+|Residual s       | 11281.6100|
+|Outliers Removed |    36.0000|
+|Test RMSE        | 15290.8400|
+|Test R2          |     0.6612|
+
+---
+
+class: tiny-table compact small-title
+
+## HousePrices: Final Model Terms
+
+
+|Term          |Estimate   |P Value  |
+|:-------------|:----------|:--------|
+|lotsize       |3.7246     |&lt; 1e-16  |
+|stories       |7513.8128  |&lt; 1e-16  |
+|bathrooms     |11862.8341 |1.10e-16 |
+|airconyes     |11024.1191 |1.58e-15 |
+|preferyes     |8693.1604  |5.30e-09 |
+|garage        |2990.4355  |5.96e-05 |
+|fullbaseyes   |5195.2531  |0.000154 |
+|gasheatyes    |11673.0625 |0.000359 |
+|drivewayyes   |5494.4737  |0.001009 |
+|recreationyes |2702.0028  |0.097389 |
+|bedrooms      |1115.7889  |0.213757 |
+
+- Larger lots, more stories and bathrooms, air conditioning, a garage,
+  and preferred location all move fitted price upward when the other
+  features are held fixed.
+- The coefficient table shows that the strongest evidence sits in
+  structural and amenity terms rather than in one single dominant
+  feature.
+
+---
+
+class: plot-slide small-table
+
+## HousePrices: Diagnostics
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-13-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+|Test          |P.Value  |
+|:-------------|:--------|
+|Shapiro-Wilk  |0.021159 |
+|Breusch-Pagan |0.009426 |
+|Durbin-Watson |0.000158 |
+
+- The residual checks do not show a single breakdown large enough to
+  undermine the model for the main inference and prediction goals here.
+
+---
+
+class: plot-slide
+
+## HousePrices: Bootstrap Coefficient Intervals
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-15-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- These are empirical 95% intervals from `200` bootstrap resamples of
+  the final training set.
+- Intervals far from `0` support stable coefficient direction.
+- The intercept is omitted because its much larger scale would compress
+  the predictor effects.
+- The most practically important retained terms stay on one side of `0`,
+  which supports stable sign interpretation.
+
+---
+
+class: small-table
+
+## HousePrices: Prediction Examples
+
+
+|Scenario     |    Fit|CI               |PI               |
+|:------------|------:|:----------------|:----------------|
+|Smaller home |  47871|(45465, 50277)   |(25562, 70180)   |
+|Larger home  | 124806|(117441, 132170) |(101436, 148175) |
+
+- The confidence interval estimates the mean price.
+- The prediction interval is wider because it predicts an individual
+  home sale.
+- The higher-amenity scenario also gets the higher fitted price, which
+  matches the coefficient signs in the final model.
+
+---
+
+class: plot-slide
+
+## HousePrices: CI and PI Overlay
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-17-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Gray points are actual observed prices.
+- The x-axis is fitted mean response, sorted from low to high.
+- The green line is the fitted mean.
+- Orange bands show PI for observed-data rows.
+- Red triangles and bars now sit at their fitted locations on the green
+  line.
+- The wider orange bands show that individual-home prediction is much
+  harder than estimating the mean response.
+
+---
+
+class: plot-slide
+
+## HousePrices: Predicted vs Actual (Test Set)
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-18-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Points close to the dashed line indicate accurate test-set predictions.
+- Deviations are largest at high price values, showing more uncertainty for expensive homes.
+- The overall scatter is consistent with the test RMSE reported in the final model summary.
+
+---
+
+## CASchools: Dataset Snapshot
+
+.pull-left[
+- `420` observations and `9` analysis variables
+- Response: average test score `score`
+- `str`: students per teacher
+- `calworks`: percent of students on CalWORKs
+- `lunch`: percent eligible for subsidized lunch
+- `income`: district income level
+- `english`: percent of English learners
+- `grades`: district grade-span category; one fitted indicator is
+  `gradesKK-08` for K-8 districts
+- Missing values: `0`
+- The covariates mix school resources with student-composition measures,
+  so the model is mainly explanatory rather than causal.
+]
+
+.pull-right[
+
+|Item    | Value|
+|:-------|-----:|
+|Rows    |   420|
+|Columns |     9|
+|Missing |     0|
+]
+
+---
+
+class: plot-slide
+
+## CASchools: Exploratory Overview
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-20-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Score is roughly symmetric and bell-shaped across districts.
+- The negative relationship with lunch rate is the strongest raw signal in the data.
+- Income shows a clear positive association, confirming that socioeconomic factors dominate the score pattern.
+
+---
+
+class: small-table
+
+## CASchools: Interim Process
+
+
+|Step                |Detail                      |
+|:-------------------|:---------------------------|
+|Split data          |326 train / 94 test         |
+|Build full model    |8 starting predictors       |
+|Build model ladder  |8 nested steps              |
+|Run repeated CV     |5 folds x 6 repeats         |
+|Compare AIC and CV  |Step 3 vs Step 3            |
+|Remove outliers     |18 points above Cook cutoff |
+|Check residuals     |QQ, BP, and DW tests        |
+|Bootstrap intervals |200 bootstrap resamples     |
+|Predict districts   |2 cases with CI and PI      |
+
+- The main question is whether school-score variation is driven more by
+  student composition than by resource variables.
+
+---
+
+class: plot-slide
+
+## CASchools: CV Across the Selection Ladder
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-22-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The ladder is built from the training-set full model.
+- Each step again summarizes `30` validation RMSE values from `5` folds
+  repeated `6` times.
+- This checks whether a simpler school-score model is competitive before
+  touching the test set.
+- Here the AIC step and CV step agree, so the red line lands at the best
+  step.
+- Agreement between AIC and CV makes the reduced school model much more
+  defensible.
+
+---
+
+class: small-table
+
+## CASchools: AIC Step vs CV Step
+
+
+|Model       |Best Step | Predictors| CV RMSE|
+|:-----------|:---------|----------:|-------:|
+|AIC-optimal |Step 3    |          5|  8.3683|
+|CV-optimal  |Step 3    |          5|  8.3683|
+
+- The agreement here says the AIC-selected reduction is not just an
+  artifact of one criterion.
+
+---
+
+class: small-table
+
+## CASchools: Sensitivity to Cook Filtering
+
+
+|Training Data Used          |AIC Best Step | AIC RMSE|CV Best Step | CV RMSE|
+|:---------------------------|:-------------|--------:|:------------|-------:|
+|Original training data      |Step 3        |     8.37|Step 3       |    8.37|
+|Cook-filtered training data |Step 3        |     7.09|Step 3       |    7.09|
+
+- The main question is whether influential districts materially change
+  the selected CV step or the full validation curve.
+
+
+|Training Data Used          |AIC Best Step |CV Best Step |Held-out Test RMSE         |
+|:---------------------------|:-------------|:------------|:--------------------------|
+|Original training data      |Step 3        |Step 3       |8.54 (same for AIC and CV) |
+|Cook-filtered training data |Step 3        |Step 3       |8.68 (same for AIC and CV) |
+
+- In the upper table, both RMSE columns are repeated-CV validation RMSE.
+- In the lower table, the RMSE is computed on the held-out 20% test set
+  by comparing predictions to the actual observed response values.
+- When AIC and CV pick the same step, that test RMSE is shown once.
+- The selected step does not move after filtering, so the main school
+  result is not being driven by a few extreme districts.
+
+---
+
+class: small-table plot-slide
+
+## CASchools: CV Ladder Before and After Cook Filtering
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-26-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The best step stays the same after Cook filtering, but the full curve
+  shifts down, which makes the selected model look more stable.
+- That means filtering helps fit quality, but it does not change which
+  predictors matter.
+
+---
+
+class: tiny-table compact
+
+## CASchools: Final Model
+
+- Final predictors kept:
+
+str, lunch, income, english, grades
+
+- Removed from full model:
+
+calworks, computer.rate, expenditure
+
+.pull-left[
+
+|Metric           |   Value|
+|:----------------|-------:|
+|Adjusted R2      |  0.8560|
+|Residual s       |  7.0500|
+|Outliers Removed | 18.0000|
+|Test RMSE        |  8.6800|
+|Test R2          |  0.7701|
+]
+
+.pull-right[
+
+|Term        |Estimate |P Value  |
+|:-----------|:--------|:--------|
+|lunch       |-0.4230  |&lt; 1e-16  |
+|income      |0.6233   |6.04e-12 |
+|english     |-0.1653  |4.99e-07 |
+|str         |-0.9092  |0.000126 |
+|gradesKK-08 |-4.2098  |0.000536 |
+]
+
+- `gradesKK-08` is kept in the pooled model because it captures a real
+  district-type difference; dropping it would likely push that effect
+  into the other coefficients.
+- The district-type extensions test that choice directly and find little
+  evidence that district type changes the slopes of the shared
+  predictors.
+- Once poverty proxies and district type are in the model, extra
+  resource variables add much less explanatory power.
+
+---
+
+class: plot-slide small-table
+
+## CASchools: Diagnostics
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-29-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+|Test          |P.Value  |
+|:-------------|:--------|
+|Shapiro-Wilk  |0.5591   |
+|Breusch-Pagan |0.0474   |
+|Durbin-Watson |1.39e-05 |
+
+- The residual diagnostics are acceptable for this project; the larger
+  interpretive question is coefficient meaning, not obvious model
+  failure.
+
+---
+
+class: plot-slide
+
+## CASchools: Bootstrap Coefficient Intervals
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-31-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- These are empirical 95% intervals from `200` bootstrap resamples.
+- A log scale would not work here because several coefficients are
+  negative.
+- The intercept is omitted so the predictor intervals do not collapse
+  visually toward `0`.
+- `lunch` and `income` remain the most stable effects, while weaker
+  terms sit closer to `0` and deserve more caution.
+
+---
+
+class: small-table
+
+## CASchools: Prediction Examples
+
+
+|Scenario             |    Fit|CI               |PI              |
+|:--------------------|------:|:----------------|:---------------|
+|Lower-risk district  | 672.56|(670.3, 674.82)  |(658.5, 686.62) |
+|Higher-risk district | 636.56|(635.06, 638.06) |(622.6, 650.52) |
+
+- Lower lunch rates and higher district income lead to higher predicted
+  scores in the final model.
+- The wider prediction intervals again show that district-level mean
+  structure is estimated more tightly than individual-district outcome.
+
+---
+
+class: plot-slide
+
+## CASchools: CI and PI Overlay
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-33-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The x-axis is fitted mean response, sorted from low to high.
+- New prediction cases now sit at their own fitted locations instead of
+  being appended at the end.
+- The spread around the fitted line is consistent with the wider orange
+  prediction bands for new districts.
+
+---
+
+class: plot-slide
+
+## CASchools: Predicted vs Actual (Test Set)
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-34-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The tight scatter around the diagonal shows the model generalizes well to unseen districts.
+- Residual spread is roughly even across score levels, consistent with the Breusch-Pagan result.
+- Any remaining deviations reflect unexplained district-level variation, not a systematic model failure.
+
+---
+
+class: center, middle, inverse
+
+# Part II
+
+## Finance Application
+
+&lt;span class="accent"&gt;6 NYSE stocks, 3 years of close prices, and S&amp;P 500 benchmarking&lt;/span&gt;
+
+---
+
+class: small-table compact
+
+## Finance: Method Steps
+
+
+|Step                          |Detail                     |
+|:-----------------------------|:--------------------------|
+|Pull close prices             |Yahoo Finance, 2023-2025   |
+|Convert to daily returns      |Arithmetic daily returns   |
+|Annualize return and risk     |Mean*252 and sd*sqrt(252)  |
+|Compare correlation to market |Corr(stock, SP500)         |
+|Plot cumulative returns       |Growth of $1 over time     |
+|Run CAPM regressions          |alpha, beta, and R2        |
+|Track rolling beta            |60-day beta windows        |
+|Track rolling correlation     |60-day correlation windows |
+
+- Returns, not raw prices, are the right object for comparison because
+  the stocks trade at very different price levels.
+- The finance results answer different questions: average performance,
+  market linkage, regression exposure, and time variation.
+
+---
+
+class: small-table
+
+## Finance: Stock Selection
+
+
+|Ticker |Company           |Industry           |
+|:------|:-----------------|:------------------|
+|JPM    |JPMorgan Chase    |Financial Services |
+|JNJ    |Johnson &amp; Johnson |Healthcare         |
+|XOM    |Exxon Mobil       |Energy             |
+|WMT    |Walmart           |Consumer Defensive |
+|CAT    |Caterpillar       |Industrials        |
+|BA     |Boeing Company    |Aerospace          |
+
+- All six stocks are NYSE-listed.
+- Industries are intentionally different to avoid choosing five similar
+  firms.
+- Benchmark: `^GSPC` for the S&amp;P 500.
+- The cross-sector mix gives the portfolio visibly different beta and
+  correlation behavior instead of five nearly identical names.
+
+---
+
+class: plot-slide
+
+## Finance: Daily Return Distributions
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-37-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- All six stocks show fat-tailed return distributions — extreme days occur more often than a normal model predicts.
+- The spread of each histogram confirms the annualized risk ordering shown in the return-risk plot.
+- Comparing widths visually separates the more volatile names from the steadier defensive stocks.
+
+---
+
+class: plot-slide
+
+## Finance: Close Prices
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-1.png" width="100%" style="display: block; margin: auto;" /&gt;&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-2.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Raw close prices mainly show different scales and market regimes.
+- The next comparisons switch to returns because raw dollar levels are
+  not directly comparable across stocks.
+
+---
+
+class: plot-slide
+
+## Finance: Annualized Return and Risk
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-39-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- CAT has the strongest annualized return, while
+  BA carries the most risk.
+- JNJ is the defensive end of the group, so the chart
+  separates aggressive from steadier names.
+
+---
+
+class: small-table plot-slide compact small-title
+
+## Finance: Correlation with S&amp;P 500 vs Risk and Return
+
+.pull-left[
+
+|Ticker | Annual Return| Annual Risk| Corr with SP500|
+|:------|-------------:|-----------:|---------------:|
+|JPM    |        0.3198|      0.2315|          0.6023|
+|JNJ    |        0.0650|      0.1723|          0.0811|
+|XOM    |        0.0686|      0.2270|          0.2954|
+|WMT    |        0.3049|      0.1991|          0.3494|
+|CAT    |        0.3380|      0.2899|          0.6089|
+|BA     |        0.0929|      0.3333|          0.4772|
+]
+
+.pull-right[
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-41-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+]
+
+- Horizontal position is correlation with the S&amp;P 500, vertical position
+  is annualized return, and bubble size reflects annualized risk.
+- CAT is the most market-linked stock here, but that
+  does not automatically make it the highest-return name.
+- JNJ helps show that lower market linkage can pair
+  with a very different return-risk profile.
+
+---
+
+class: plot-slide
+
+## Finance: Linking Risk-Return and Market Correlation
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-42-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Dotted links connect each stock's annual return across the risk view
+  and the market-correlation view.
+- This makes it easier to compare whether a stock's return profile is
+  lining up more with risk or with broad-market linkage.
+- A stock can be very market-linked without having the most extreme risk
+  position, so correlation and volatility are related but not the same.
+
+---
+
+class: plot-slide
+
+## Finance: Correlation Heatmap
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-43-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Warmer colors mean stronger positive correlation.
+- Cooler colors mean weaker market co-movement.
+- Correlation matters because diversification is weaker when all assets
+  move together.
+- The uneven color pattern shows that diversification benefit depends on
+  which names are combined, not just how many names are held.
+
+---
+
+class: plot-slide
+
+## Finance: Cumulative Returns
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-44-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- CAT finishes with the strongest growth path, while
+  BA trails the group.
+- The path differences show why average return alone can hide very
+  different investment experiences.
+
+---
+
+class: small-table
+
+## Finance: Alpha, Beta, and R-Squared
+
+
+|Ticker | Alpha Daily| Alpha Annual|   Beta| R Squared|
+|:------|-----------:|------------:|------:|---------:|
+|JPM    |       5e-04|       0.1261| 0.9257|    0.3628|
+|JNJ    |       2e-04|       0.0456| 0.0927|    0.0066|
+|XOM    |      -1e-04|      -0.0246| 0.4452|    0.0873|
+|WMT    |       8e-04|       0.2083| 0.4618|    0.1221|
+|CAT    |       4e-04|       0.0929| 1.1718|    0.3707|
+|BA     |      -5e-04|      -0.1280| 1.0558|    0.2277|
+
+- `beta` measures sensitivity to market return.
+- `alpha` measures abnormal return relative to the S&amp;P 500.
+- `R^2` measures how much of stock-return variation is explained by the
+  market.
+- CAT is the most market-sensitive name here, and
+  CAT is the stock whose returns are most tightly tied
+  to broad market movement.
+
+---
+
+class: plot-slide
+
+## Finance: CAPM Fitted vs Actual Returns
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-46-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Stocks with higher R-squared cluster more tightly around the diagonal; lower R-squared stocks show wider scatter.
+- The spread in each panel is the stock-specific variation the CAPM market factor cannot explain.
+- This complements the R-squared column in the CAPM table by making the unexplained residual variation visible.
+
+---
+
+class: plot-slide
+
+## Finance: Rolling 60-Day Beta
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-47-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Beta above `1` means the stock moved more aggressively than the market
+  in that 60-day window.
+- Beta blends co-movement with relative volatility, so a rising line can
+  mean tighter market linkage, larger stock swings, or both.
+- A single full-sample beta misses these shifts, so rolling beta is more
+  informative about changing exposure.
+
+---
+
+class: plot-slide
+
+## Finance: Rolling 60-Day Correlation
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-48-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- Correlation isolates co-movement strength only, without the
+  relative-volatility piece.
+- Together, the rolling beta and rolling correlation plots show whether
+  a stock became more market-linked because it moved more in sync with
+  the S&amp;P 500, because it got more volatile, or both.
+- Comparing the two rolling plots separates “moves with the market” from
+  “moves more violently than the market.”
+
+---
+
+class: center, middle, inverse
+
+# Final Takeaways
+
+- `HousePrices`: the best CV step is `S1`, and Cook filtering improves
+  the whole validation ladder while keeping house-price prediction
+  strong.
+- `CASchools`: AIC and CV agree on the same reduced step, and the final
+  model links stronger scores with lower poverty measures and higher
+  district income.
+- Finance: the six stocks occupy different risk-return positions, show
+  different market linkage to the S&amp;P 500, and that linkage changes over
+  time in the rolling beta and rolling correlation plots.
+
+---
+
+class: center, middle, inverse
+
+# Appendix
+
+CASchools district-type extensions
+
+---
+
+class: small-table small-title
+
+## Appendix: CASchools Within-Group Fit Check
+
+
+|District Type |   N| Pooled Within-Group R2| Stratified Within-Group R2| R2 Gain from Splitting|
+|:-------------|---:|----------------------:|--------------------------:|----------------------:|
+|KK-06         |  42|                 0.9201|                     0.9275|                 0.0074|
+|KK-08         | 266|                 0.8432|                     0.8434|                 0.0002|
+
+- These are the right `R^2` comparisons to make: pooled-model fit inside
+  each district type versus a separate model fit inside that same
+  district type.
+- Splitting helps `KK-06` by about 0.0074 and
+  changes `KK-08` by only 0.0002.
+- So the pooled model was already fitting both district types fairly
+  well; stratifying is not a dramatic upgrade.
+
+---
+
+class: tiny-table compact small-title
+
+## Appendix: CASchools Stratified Coefficients and P Values
+
+
+|Term     |KK-06 Est (p)      |KK-08 Est (p)      |
+|:--------|:------------------|:------------------|
+|str      |-0.4693 (0.308301) |-0.9888 (0.000237) |
+|calworks |0.0071 (0.964336)  |0.0018 (0.977435)  |
+|lunch    |-0.3527 (0.000905) |-0.4322 (&lt; 1e-16)  |
+|income   |0.9616 (1.27e-05)  |0.5758 (7.26e-09)  |
+|english  |-0.2151 (0.030894) |-0.1597 (2.49e-05) |
+
+- `lunch` and `income` are stable in both district types.
+- `english` is clearly significant in `KK-08`, but only marginal in the
+  smaller `KK-06` sample.
+- `str` stays negative in both groups, but its significance is much less
+  stable than the socioeconomic measures.
+
+---
+
+class: tiny-table compact small-title
+
+## Appendix: CASchools Interaction Slopes by District Type
+
+
+|Model                            | Residual.DF|      RSS|F      |P.Value |
+|:--------------------------------|-----------:|--------:|:------|:-------|
+|Main-effects pooled model        |         302| 15019.11|       |        |
+|Add 5 district-type interactions |         296| 14902.37|0.3864 |0.887   |
+
+
+|Term     |KK-06 Slope (p)   |KK-08 Slope (p)    |Delta 08-06 (p) |
+|:--------|:-----------------|:------------------|:---------------|
+|str      |-0.4693 (0.444)   |-0.9888 (0.000149) |-0.5195 (0.435) |
+|calworks |0.0071 (0.973)    |0.0018 (0.977)     |-0.0053 (0.981) |
+|lunch    |-0.3527 (0.00767) |-0.4322 (&lt;1e-16)   |-0.0795 (0.563) |
+|income   |0.9616 (0.000212) |0.5758 (2.3e-09)   |-0.3858 (0.158) |
+|english  |-0.2151 (0.0965)  |-0.1597 (1.36e-05) |0.0555 (0.679)  |
+
+- In R's treatment coding, `KK-06` is the baseline group, so the raw
+  interaction coefficients are slope differences rather than full
+  `KK-08` slopes.
+- Reconstructing both group slopes shows the same main pattern in each
+  district type: `lunch` stays negative and `income` stays positive.
+- The joint F-test and the large delta p-values both say the slope
+  differences are weak.
+
+---
+
+class: plot-slide compact small-title
+
+## Appendix: CASchools Interaction Plot Explained
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-53-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+- The joint F-test gives a p-value of 0.887,
+  so adding all five interactions does not materially improve fit.
+- Only `income` varies here; the other predictors are fixed at their
+  sample medians, and the near-parallel lines show district type mainly
+  shifts the fitted level rather than the slope pattern.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+  "ratio": "16:9",
+  "highlightStyle": "github",
+  "countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
