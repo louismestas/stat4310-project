@@ -947,7 +947,7 @@ finance.annual <- data.frame(
   Annual_Risk = round(apply(finance.ret.mat, 2, sd) * sqrt(252), 4)
 )
 rownames(finance.annual) <- NULL
-# please work
+# please work plzzzz
 finance.corr <- round(cor(finance.ret.mat), 3)
 finance.cum <- xts(
   apply(1 + finance.ret.mat, 2, cumprod),
