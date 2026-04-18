@@ -890,6 +890,8 @@ schools.process <- data.frame(
 ```
 
 ```{r}
+
+# Creating a reference table
 finance.stocks <- data.frame(
   Ticker = c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA"),
   Company = c(
@@ -918,6 +920,8 @@ CAT.f <- getSymbols("CAT", src = "yahoo", from = "2023-01-01", to = "2025-12-31"
 BA.f <- getSymbols("BA", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 GSPC.f <- getSymbols("^GSPC", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 
+# Pulling data from Yahoo Finance
+
 finance.close <- na.omit(merge(
   JPM = Cl(JPM.f),
   JNJ = Cl(JNJ.f),
@@ -929,6 +933,8 @@ finance.close <- na.omit(merge(
 ))
 colnames(finance.close) <- c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA", "SP500")
 
+# Cleaning the dataframe, building a close price column, combing stocks by date, and removing missing values.
+
 finance.ret <- na.omit(merge(
   dailyReturn(Cl(JPM.f), type = "arithmetic"),
   dailyReturn(Cl(JNJ.f), type = "arithmetic"),
@@ -939,6 +945,9 @@ finance.ret <- na.omit(merge(
   dailyReturn(Cl(GSPC.f), type = "arithmetic")
 ))
 colnames(finance.ret) <- c("JPM", "JNJ", "XOM", "WMT", "CAT","BA", "SP500")
+
+# Calculating daily returns for each stock ^ and creating a correlation matrix v 
+
 finance.ret.mat <- coredata(finance.ret)
 
 finance.annual <- data.frame(
@@ -948,11 +957,15 @@ finance.annual <- data.frame(
 )
 rownames(finance.annual) <- NULL
 
-finance.corr <- round(cor(finance.ret.mat), 3)
+# Creating an annual return + risk dataframe
+
+finance.corr <- round(cor(finance.ret.mat), 3) # measuring how stocks move togther
+
+
 finance.cum <- xts(
   apply(1 + finance.ret.mat, 2, cumprod),
   order.by = index(finance.ret)
-)
+) # taking daily returns and turning it into growth over time. Basically how $1 invested grows over time
 
 finance.capm <- data.frame(
   Ticker = finance.stocks$Ticker,
@@ -960,7 +973,7 @@ finance.capm <- data.frame(
   Alpha_Annual = rep(NA, 6),
   Beta = rep(NA, 6),
   R_Squared = rep(NA, 6)
-)
+) # creating a result table for CAPM values
 
 for (i in 1:6) {
   stock.name <- finance.stocks$Ticker[i]
@@ -969,9 +982,10 @@ for (i in 1:6) {
   finance.capm$Alpha_Annual[i] <- coef(model)[1] * 252
   finance.capm$Beta[i] <- coef(model)[2]
   finance.capm$R_Squared[i] <- summary(model)$r.squared
-}
+} # NEEDS REVIEW: NOT SURE IF IT SHOULD BE 1:6 TO INCLUDE S&P 500. SOLUTION MAY BE TO MAKE IT 1:7
+# Runs linear regression for each stock against the market
 
-finance.capm[, 2:5] <- round(finance.capm[, 2:5], 4)
+finance.capm[, 2:5] <- round(finance.capm[, 2:5], 4) # Cleans alpha, beta, and R^2 to look nice
 rownames(finance.capm) <- NULL
 
 finance.compare <- data.frame(
@@ -979,29 +993,36 @@ finance.compare <- data.frame(
   Annual_Return = finance.annual$Annual_Return[match(finance.stocks$Ticker, finance.annual$Ticker)],
   Annual_Risk = finance.annual$Annual_Risk[match(finance.stocks$Ticker, finance.annual$Ticker)],
   Corr_SP500 = round(cor(finance.ret.mat[, finance.stocks$Ticker], finance.ret.mat[, "SP500"]), 4)
-)
+) # organizing all summary tables
 rownames(finance.compare) <- NULL
-finance.label.pos <- c(2, 4, 1, 2, 4)
+finance.label.pos <- c(2, 4, 1, 2, 4, 3) # ADDING 3 TO INCLUDE BA
 finance.annual.display <- finance.annual
 names(finance.annual.display) <- c("Ticker", "Annual Return", "Annual Risk")
 finance.compare.display <- finance.compare
 names(finance.compare.display) <- c("Ticker", "Annual Return", "Annual Risk", "Corr with SP500")
 finance.capm.display <- finance.capm
 names(finance.capm.display) <- c("Ticker", "Alpha Daily", "Alpha Annual", "Beta", "R Squared")
-finance.top.return <- finance.compare$Ticker[which.max(finance.compare$Annual_Return)]
-finance.high.risk <- finance.compare$Ticker[which.max(finance.compare$Annual_Risk)]
+finance.top.return <- finance.compare$Ticker[which.max(finance.compare$Annual_Return)] 
+# finds which stock has best annual return
+finance.high.risk <- finance.compare$Ticker[which.max(finance.compare$Annual_Risk)] 
+# High risk
 finance.low.risk <- finance.compare$Ticker[which.min(finance.compare$Annual_Risk)]
-finance.annual.label.pos <- ifelse(finance.annual$Ticker == finance.high.risk, 2, 4)
+# Low risk
+finance.annual.label.pos <- ifelse(finance.annual$Ticker == finance.high.risk, 2, 4) # adjusting label positioning
 finance.high.corr <- finance.compare$Ticker[which.max(finance.compare$Corr_SP500)]
+# most market like stock
 finance.low.corr <- finance.compare$Ticker[which.min(finance.compare$Corr_SP500)]
+# Most independent stock
 finance.high.beta <- finance.capm$Ticker[which.max(finance.capm$Beta)]
+# Most aggressve stock against the market
 finance.high.rsq <- finance.capm$Ticker[which.max(finance.capm$R_Squared)]
+# Most explained by movement of market
 finance.best.cum <- finance.stocks$Ticker[
   which.max(as.numeric(last(finance.cum[, finance.stocks$Ticker])))
-]
+] # Best performer over given time period
 finance.worst.cum <- finance.stocks$Ticker[
   which.min(as.numeric(last(finance.cum[, finance.stocks$Ticker])))
-]
+] # Worst performer over given time period
 
 finance.process <- data.frame(
   Step = c(
@@ -1025,7 +1046,7 @@ finance.process <- data.frame(
     "60-day correlation windows"
   )
 )
-
+# Creating a dataframe with the sequence of steps and details of how it was done.
 finance.roll.beta <- na.omit(merge(
   JPM = rolling_market_stat(finance.ret[, "JPM"], finance.ret[, "SP500"], stat = "beta"),
   JNJ = rolling_market_stat(finance.ret[, "JNJ"], finance.ret[, "SP500"], stat = "beta"),
@@ -1033,7 +1054,7 @@ finance.roll.beta <- na.omit(merge(
   WMT = rolling_market_stat(finance.ret[, "WMT"], finance.ret[, "SP500"], stat = "beta"),
   CAT = rolling_market_stat(finance.ret[, "CAT"], finance.ret[, "SP500"], stat = "beta"),
   BA = rolling_market_stat(finance.ret[, "BA"], finance.ret[, "SP500"], stat = "beta")
-))
+)) # Calculating rolling 60-day market relationships, meaning this section measures how values change over time instead of a single beta/correlation for the whole period
 
 finance.roll.corr <- na.omit(merge(
   JPM = rolling_market_stat(finance.ret[, "JPM"], finance.ret[, "SP500"], stat = "correlation"),
@@ -1042,7 +1063,7 @@ finance.roll.corr <- na.omit(merge(
   WMT = rolling_market_stat(finance.ret[, "WMT"], finance.ret[, "SP500"], stat = "correlation"),
   CAT = rolling_market_stat(finance.ret[, "CAT"], finance.ret[, "SP500"], stat = "correlation"),
   BA = rolling_market_stat(finance.ret[, "BA"], finance.ret[, "SP500"], stat = "correlation")
-))
+)) # Computes 60 day correlation with S&P500 to view how each stock moves with the market overtime
 ```
 
 class: center, middle, inverse
@@ -2202,7 +2223,7 @@ symbols(
   finance.compare$Corr_SP500,
   finance.compare$Annual_Return,
   circles = finance.compare$Annual_Risk,
-  inches = 0.2,
+  inches = 0.18,
   add = TRUE,
   bg = adjustcolor("#2a6f97", alpha.f = 0.25),
   fg = "#2a6f97"
