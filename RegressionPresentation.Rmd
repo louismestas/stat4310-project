@@ -41,7 +41,7 @@ get_metrics <- function(actual, predicted) {
     Test_R2 = 1 - sum((actual - predicted)^2) /
       sum((actual - mean(actual))^2)
   )
-}
+} # Created a reusable model evaluation function that calculates MSE, RRMSE, MAE, and test R^2.
 
 get_diag <- function(model) {
   data.frame(
@@ -52,7 +52,7 @@ get_diag <- function(model) {
       dwtest(model)$p.value
     ), digits = 3, eps = 1e-16))
   )
-}
+} # Takes a regression model an returns a table of diagnostic tests such as Shapiro Wilk, Breusch-Pagan, and Durbin Watson
 
 get_term_table <- function(model) {
   out <- tidy(model)
@@ -63,7 +63,7 @@ get_term_table <- function(model) {
   names(out) <- c("Term", "Estimate", "P Value")
   rownames(out) <- NULL
   out
-}
+} # Extracts coef results
 
 format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   if (identical(aic_step, cv_step)) {
@@ -71,11 +71,11 @@ format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   } else {
     sprintf("AIC %.2f, CV %.2f", aic_rmse, cv_rmse)
   }
-}
+} # Compares two models
 
 subgroup_r2 <- function(actual, predicted) {
   1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
-}
+} # Computes R^2 for a subgroup
 
 linear_combo_stats <- function(model, weights) {
   beta <- coef(model)
@@ -108,7 +108,7 @@ build_backward_ladder <- function(model) {
     aic = AIC(model),
     removed = NA_character_,
     stringsAsFactors = FALSE
-  )
+  ) # Made a backward stepwise model that reoves predictors one at a time using AIC until a reduced model is achieved
 
   current_model <- model
 
