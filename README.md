@@ -10,6 +10,14 @@ To find issues that need to be resolve search code for the following keywords:
 - `NEEDS REVEIW:` 
   - Should include a description of the issue and a proposed solution.
   - Once the issue is resolved, change the keyword to `RESOLVED:`and include a brief description of how the issue was resolved along with the date of resolution and your name.
+  - **IF YOU FIND AN ISSUE THAT NEEDS TO BE RESOLVED, PLEASE ADD A COMMENT IN THE CODE WITH THE KEYWORD `NEEDS REVIEW:` AND A DESCRIPTION OF THE ISSUE AND PROPOSED SOLUTION.\
+  Again, ONCE THE ISSUE IS RESOLVED, CHANGE THE KEYWORD TO `RESOLVED:` AND INCLUDE A BRIEF DESCRIPTION OF HOW THE ISSUE WAS RESOLVED ALONG WITH THE DATE OF RESOLUTION AND YOUR NAME.**\
+- `TODO:` 
+  - Should include a description of the task that needs to be completed and should only be assigned by  TLindenIII (Thomas Linden(Project Group Leader)) and/or by louismestas or edgpineda18 via approval of TLindenIII.
+  - Once the task is completed, change the keyword to `COMPLETED:` and include a brief description of how the task was completed along with the date of completion and your name.
+  - **IF YOU HAVE A TASK THAT NEEDS TO BE COMPLETED, PLEASE ADD A COMMENT IN THE CODE WITH THE KEYWORD `TODO:` AND A DESCRIPTION OF THE TASK and notify TLindenIII, louismestas, or edgpineda18.\
+  Again, ONCE THE TASK IS COMPLETED, CHANGE THE KEYWORD TO `COMPLETED:` AND INCLUDE A BRIEF DESCRIPTION OF HOW THE TASK WAS COMPLETED ALONG WITH THE DATE OF COMPLETION AND YOUR NAME.**
+
 
 A `xaringan` slide presentation covering two applied regression datasets
 (**HousePrices** and **CASchools**) plus a finance application using six NYSE
