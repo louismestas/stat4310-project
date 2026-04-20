@@ -1903,20 +1903,35 @@ class: small-table compact
 
 - Final predictors kept:
 
-`r house.predictors`
+  house.predictors is a character string listing the variables that stayed in the model.
+    
+  `r house.predictors`
 
 - Removed from full model:
 
-`r house.removed.text`
+  house.removed.text lists the variables we tried initially but found not helpful enough.
+  
+  `r house.removed.text`
 
-- "Removed" now means removed from the expanded candidate model, which
-  includes centered base terms plus derived and interaction candidates.
-- The final model is selected after Cook filtering, so the reported
-  terms reflect both influence screening and the post-Cook AIC/CV ladder.
+- The idea:
+  The first line is "what actually matters" for explaining price in the final model.
+  The second line is "extra stuff" that did not improve prediction enough to keep.
 
 ```{r}
-# Final-model metrics after Cook filtering.
 kable(house.summary, row.names = FALSE)
+# Display a compact summary of how well the final model performs.
+# The table shows:
+#   - Adjusted R2: how much of the variation in prices the model explains,
+#                  adjusted for how many predictors we use.
+#   - Residual s: the typical size of the errors on the training data,
+#                 in the same units as price (lower is better).
+#   - Outliers Removed: how many unusually influential sales we removed
+#                       (via Cook filtering) before fitting this final model.
+#   - Test RMSE: average prediction error on the 20% test set that the model
+#                never saw during training (lower is better).
+#   - Test R2: how much variation in prices the model explains on that test set.
+# Together, these numbers give a high-level view of model fit and
+# how well it predicts new house prices.
 ```
 
 ---
