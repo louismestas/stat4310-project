@@ -3,7 +3,7 @@
 **Authors:** Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda
 
 ## Contribution Edits
-To earn credit for your contribution, please make edits to the `presentation.Rmd` file and include the following comment format in your code where you made changes:
+To earn credit for your contribution, please make edits to the `RegressionPresentation.Rmd` file and include the following comment format in your code where you made changes:
 
 To find issues that need to be resolve search code for the following keywords:
 
@@ -29,8 +29,8 @@ stocks benchmarked against the S&P 500.
 
 ```
 stat4310-project/
-├── presentation.Rmd          # Main slide deck source
-├── project-presentation.css  # Custom xaringan theme (required)
+├── RegressionPresentation.Rmd # Main slide deck source
+├── style.css                  # Custom xaringan theme (required)
 ├── renv.lock                 # Locked package versions
 ├── renv/                     # renv scaffolding (auto-generated)
 ├── .gitignore
@@ -91,16 +91,16 @@ to build the project. It may take a few minutes the first time.
 
 ### 3 — Render the slides
 
-In RStudio, open `presentation.Rmd` and click **Knit**, or run:
+In RStudio, open `RegressionPresentation.Rmd` and click **Knit**, or run:
 
 ```r
-rmarkdown::render("presentation.Rmd")
+rmarkdown::render("RegressionPresentation.Rmd")
 ```
 
 This will:
 1. Pull live close prices from Yahoo Finance (2023–2025) via `quantmod`
 2. Run all model-selection, CV, bootstrap, and CAPM code
-3. Produce `presentation.html` — open it in any browser
+3. Produce `RegressionPresentation.html` — open it in any browser
 
 > **Heads-up on live data:** the finance section fetches real-time prices
 > each time you knit. Results will update as more 2025 trading days become
@@ -112,7 +112,7 @@ This will:
 
 If you just want to see the slides without installing R:
 
-1. Download `presentation.html` from the repo
+1. Download `RegressionPresentation.html` from the repo
 2. Open it in any modern browser — no server or R needed
 
 The HTML file is self-contained and includes all plots.
@@ -146,9 +146,8 @@ Wait a minute and re-knit; `getSymbols()` occasionally hits a throttle on
 first use.
 
 **Slides look unstyled.**  
-Make sure `project-presentation.css` is in the same folder as
-`presentation.Rmd`. The theme file is required for the custom colors and
-layout.
+Make sure `style.css` is in the same folder as `RegressionPresentation.Rmd`.
+The theme file is required for the custom colors and layout.
 
 **`xaringan` slides open but show a blank first slide.**  
 This is normal — the first slide uses `class: center, middle, inverse` which
@@ -167,4 +166,4 @@ install.packages(c(
 ))
 ```
 
-Then knit `presentation.Rmd` as normal.
+Then knit `RegressionPresentation.Rmd` as normal.

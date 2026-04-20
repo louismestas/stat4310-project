@@ -7,7 +7,7 @@
     <meta name="date" content="2026-04-20" />
     <script src="RegressionPresentation_files/header-attrs-2.29/header-attrs.js"></script>
     <link href="RegressionPresentation_files/remark-css-0.0.1/default.css" rel="stylesheet" />
-    <link rel="stylesheet" href="project-presentation.css" type="text/css" />
+    <link rel="stylesheet" href="style.css" type="text/css" />
   </head>
   <body>
     <textarea id="source">
@@ -859,98 +859,6 @@ class: center, middle, inverse
 - Finance: the six stocks occupy different risk-return positions, show
   different market linkage to the S&amp;P 500, and that linkage changes over
   time in the rolling beta and rolling correlation plots.
-
----
-
-class: center, middle, inverse
-
-# Appendix
-
-CASchools district-type extensions
-
----
-
-class: small-table small-title
-
-## Appendix: CASchools Within-Group Fit Check
-
-
-|District Type |   N| Pooled Within-Group R2| Stratified Within-Group R2| R2 Gain from Splitting|
-|:-------------|---:|----------------------:|--------------------------:|----------------------:|
-|KK-06         |  42|                 0.9201|                     0.9275|                 0.0074|
-|KK-08         | 266|                 0.8432|                     0.8434|                 0.0002|
-
-- These are the right `R^2` comparisons to make: pooled-model fit inside
-  each district type versus a separate model fit inside that same
-  district type.
-- Splitting helps `KK-06` by about 0.0074 and
-  changes `KK-08` by only 0.0002.
-- So the pooled model was already fitting both district types fairly
-  well; stratifying is not a dramatic upgrade.
-
----
-
-class: tiny-table compact small-title
-
-## Appendix: CASchools Stratified Coefficients and P Values
-
-
-|Term     |KK-06 Est (p)      |KK-08 Est (p)      |
-|:--------|:------------------|:------------------|
-|str      |-0.4693 (0.308301) |-0.9888 (0.000237) |
-|calworks |0.0071 (0.964336)  |0.0018 (0.977435)  |
-|lunch    |-0.3527 (0.000905) |-0.4322 (&lt; 1e-16)  |
-|income   |0.9616 (1.27e-05)  |0.5758 (7.26e-09)  |
-|english  |-0.2151 (0.030894) |-0.1597 (2.49e-05) |
-
-- `lunch` and `income` are stable in both district types.
-- `english` is clearly significant in `KK-08`, but only marginal in the
-  smaller `KK-06` sample.
-- `str` stays negative in both groups, but its significance is much less
-  stable than the socioeconomic measures.
-
----
-
-class: tiny-table compact small-title
-
-## Appendix: CASchools Interaction Slopes by District Type
-
-
-|Model                            | Residual.DF|      RSS|F      |P.Value |
-|:--------------------------------|-----------:|--------:|:------|:-------|
-|Main-effects pooled model        |         302| 15019.11|       |        |
-|Add 5 district-type interactions |         296| 14902.37|0.3864 |0.887   |
-
-
-|Term     |KK-06 Slope (p)   |KK-08 Slope (p)    |Delta 08-06 (p) |
-|:--------|:-----------------|:------------------|:---------------|
-|str      |-0.4693 (0.444)   |-0.9888 (0.000149) |-0.5195 (0.435) |
-|calworks |0.0071 (0.973)    |0.0018 (0.977)     |-0.0053 (0.981) |
-|lunch    |-0.3527 (0.00767) |-0.4322 (&lt;1e-16)   |-0.0795 (0.563) |
-|income   |0.9616 (0.000212) |0.5758 (2.3e-09)   |-0.3858 (0.158) |
-|english  |-0.2151 (0.0965)  |-0.1597 (1.36e-05) |0.0555 (0.679)  |
-
-- In R's treatment coding, `KK-06` is the baseline group, so the raw
-  interaction coefficients are slope differences rather than full
-  `KK-08` slopes.
-- Reconstructing both group slopes shows the same main pattern in each
-  district type: `lunch` stays negative and `income` stays positive.
-- The joint F-test and the large delta p-values both say the slope
-  differences are weak.
-
----
-
-class: plot-slide compact small-title
-
-## Appendix: CASchools Interaction Plot Explained
-
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-53-1.png" width="100%" style="display: block; margin: auto;" /&gt;
-
-- The joint F-test gives a p-value of 0.887,
-  so adding all five interactions does not materially improve fit.
-- Only `income` varies here; the other predictors are fixed at their
-  sample medians, and the near-parallel lines show district type mainly
-  shifts the fitted level rather than the slope pattern.
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
