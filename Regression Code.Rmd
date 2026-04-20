@@ -1292,6 +1292,39 @@ kable(
 )
 ```
 
+```{r houseprices-variable-dictionary}
+# Variable dictionary for HousePrices. This table explains the response and
+# each predictor before the modeling code uses them.
+kable(
+  data.frame(
+    Variable = c(
+      "price", "lotsize", "bedrooms", "bathrooms", "stories",
+      "driveway", "recreation", "fullbase", "gasheat", "aircon",
+      "garage", "prefer"
+    ),
+    Role = c(
+      "Response",
+      rep("Predictor", 11)
+    ),
+    Meaning = c(
+      "Sale price of the house.",
+      "Lot size for the house, measured in square feet.",
+      "Number of bedrooms.",
+      "Number of bathrooms.",
+      "Number of stories, excluding the basement.",
+      "Indicator for whether the house has a driveway.",
+      "Indicator for whether the house has a recreation room.",
+      "Indicator for whether the house has a full finished basement.",
+      "Indicator for whether the house uses gas heating.",
+      "Indicator for whether the house has central air conditioning.",
+      "Number of garage spaces.",
+      "Indicator for whether the house is in a preferred neighborhood."
+    )
+  ),
+  row.names = FALSE
+)
+```
+
 ## HousePrices: Exploratory Overview
 
 ```{r houseprices-exploratory-overview-10, fig.width=9.5, fig.height=4.8}
@@ -1642,6 +1675,35 @@ kable(
   data.frame(
     Item = c("Rows", "Columns", "Missing"),
     Value = c(nrow(schools.data), ncol(schools.data), sum(is.na(schools.data)))
+  ),
+  row.names = FALSE
+)
+```
+
+```{r caschools-variable-dictionary}
+# Variable dictionary for the transformed CASchools analysis data. Some
+# variables are created from the original AER::CASchools columns before modeling.
+kable(
+  data.frame(
+    Variable = c(
+      "score", "str", "calworks", "lunch", "computer.rate",
+      "expenditure", "income", "english", "grades"
+    ),
+    Role = c(
+      "Response",
+      rep("Predictor", 8)
+    ),
+    Meaning = c(
+      "Average of the district reading and math test scores.",
+      "Student-teacher ratio, calculated as students divided by teachers.",
+      "Percent of students qualifying for CalWORKs assistance.",
+      "Percent of students qualifying for subsidized lunch.",
+      "Computers per student, calculated as computers divided by students.",
+      "Expenditure per student.",
+      "Average district income, measured in thousands of dollars.",
+      "Percent of students who are English learners.",
+      "District grade-span category, either KK-06 or KK-08."
+    )
   ),
   row.names = FALSE
 )
@@ -2364,4 +2426,3 @@ legend(
   bty = "n"
 )
 ```
-
