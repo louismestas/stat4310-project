@@ -12,6 +12,15 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+# This setup chunk does all background work for the deck:
+#   1. load packages,
+#   2. define reusable helper functions,
+#   3. run the HousePrices analysis,
+#   4. run the CASchools analysis,
+#   5. prepare the CASchools appendix models, and
+#   6. pull/analyze the finance data.
+# The slides later in the file mostly display objects created here.
+
 knitr::opts_chunk$set(
   echo = FALSE,
   warning = FALSE,
@@ -37,6 +46,9 @@ library(quantmod)       # Quantitative finance — getSymbols() to pull NYSE/S&P
 set.seed(4310)
 
 # ── Custom Functions ─────────────────────────────────────────────────────────
+# These helper functions keep the analysis code shorter and make the same
+# methods reusable across HousePrices, CASchools, and the appendix.
+
 # Computes MSE, RMSE, MAE, and out-of-sample R² for a set of actual vs. predicted values
 get_metrics <- function(actual, predicted) {
   data.frame(
@@ -75,6 +87,8 @@ get_term_table <- function(model) {
 }
 
 
+# Formats held-out test RMSE for the sensitivity tables. If AIC and CV choose
+# the same final step, we print one RMSE instead of duplicating the same number.
 format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   if (identical(aic_step, cv_step)) {
     sprintf("%.2f (same for AIC and CV)", aic_rmse)
@@ -83,10 +97,15 @@ format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   }
 }
 
+# Computes R² inside a subgroup, used in the CASchools appendix to compare
+# pooled predictions against district-specific predictions.
 subgroup_r2 <- function(actual, predicted) {
   1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
 }
 
+# Calculates an estimate, confidence interval, and p-value for a linear
+# combination of regression coefficients. This is needed because an interaction
+# model's KK-08 slope equals the main KK-06 slope plus the interaction term.
 linear_combo_stats <- function(model, weights) {
   beta <- coef(model)
   v <- vcov(model)
@@ -109,6 +128,10 @@ linear_combo_stats <- function(model, weights) {
   )
 }
 
+# Builds the model-selection ladder used in the CV plots. Step 0 is the full
+# model. At each later step, the function tries dropping each remaining
+# predictor and keeps the drop that gives the lowest AIC. CV then evaluates
+# every model on this AIC-based ladder.
 build_backward_ladder <- function(model) {
   models <- list(model)
   steps <- data.frame(
@@ -118,11 +141,7 @@ build_backward_ladder <- function(model) {
     aic = AIC(model),
     removed = NA_character_,
     stringsAsFactors = FALSE
-<<<<<<< Updated upstream
-  ) # Made a backward stepwise model that removes predictors one at a time using AIC until a reduced model is achieved
-=======
   )
->>>>>>> Stashed changes
 
   current_model <- model
 
@@ -154,6 +173,9 @@ build_backward_ladder <- function(model) {
   list(models = models, steps = steps)
 }
 
+# Runs repeated k-fold cross-validation for every model on the ladder. In this
+# project k = 5 and repeats = 6, so each step gets 30 validation RMSE values
+# for the boxplots and one mean RMSE for the selection line.
 cv_model_ladder <- function(data, response_name, ladder, k = 5, repeats = 6, seed = 4310) {
   set.seed(seed)
   cv.results <- data.frame()
@@ -191,6 +213,8 @@ cv_model_ladder <- function(data, response_name, ladder, k = 5, repeats = 6, see
   cv.results
 }
 
+# Averages the fold-level CV results so we can identify the step with the
+# lowest validation RMSE and draw the mean CV RMSE line on the ladder plots.
 summarize_cv_results <- function(cv.results) {
   out <- aggregate(
     cbind(RMSE, MAE) ~ step + step_num + predictors,
@@ -203,6 +227,9 @@ summarize_cv_results <- function(cv.results) {
   out[order(out$step_num), ]
 }
 
+# Bootstraps coefficient intervals by resampling rows from the cleaned training
+# data, refitting the final model, and taking the 2.5% and 97.5% coefficient
+# quantiles as empirical 95% intervals.
 bootstrap_coef_table <- function(model, data, B = 200) {
   coef.names <- names(coef(model))
 
@@ -228,6 +255,9 @@ bootstrap_coef_table <- function(model, data, B = 200) {
   out
 }
 
+# Computes a rolling 60-day statistic against the S&P 500. With stat = "beta",
+# it returns CAPM-style market sensitivity; with stat = "correlation", it
+# returns the rolling strength of market co-movement.
 rolling_market_stat <- function(stock_series, market_series, width = 60,
                                 stat = c("beta", "correlation")) {
   stat <- match.arg(stat)
@@ -250,11 +280,24 @@ rolling_market_stat <- function(stock_series, market_series, width = 60,
 }
 
 data("HousePrices", package = "AER")
+
+# ── Dataset 1: HousePrices analysis pipeline ─────────────────────────────────
+# Goal: predict house sale price from physical and neighborhood features, then
+# compare AIC selection, CV selection, Cook filtering, bootstrap intervals, and
+# prediction intervals.
+
+# Keep a separate test set so final prediction performance is evaluated on data
+# not used for model selection, cross-validation, or Cook filtering.
 house.data <- HousePrices
 index <- sample(1:2, nrow(house.data), prob = c(.8, .2), replace = TRUE)
 house.train <- house.data[index == 1, ]
 house.test <- house.data[index == 2, ]
+
+# Full model: starts with every available HousePrices predictor.
 house.model <- lm(price ~ ., data = house.train)
+
+# Model-selection ladder and repeated CV: the ladder determines the candidate
+# models; CV estimates prediction error for each candidate on training folds.
 house.ladder <- build_backward_ladder(house.model)
 house.cv <- cv_model_ladder(
   data = house.train,
@@ -265,6 +308,9 @@ house.cv <- cv_model_ladder(
   seed = 4310
 )
 house.cv.summary <- summarize_cv_results(house.cv)
+
+# Compare the model AIC likes against the model CV likes. The held-out test set
+# is used only after selection to estimate final predictive performance.
 house.aic.best.idx <- which.min(house.ladder$steps$aic)
 house.cv.best.idx <- which.min(house.cv.summary$RMSE)
 house.model.aic.best <- house.ladder$models[[house.aic.best.idx]]
@@ -295,6 +341,10 @@ house.compare <- data.frame(
 )
 house.compare[, 4:5] <- round(house.compare[, 4:5], 4)
 house.cv.labels <- paste0("S", house.cv.summary$step_num)
+
+# Cook filtering: first run stepAIC for a practical reduced model, identify
+# influential training cases with Cook's distance, and refit after removing
+# points above the 4/n cutoff.
 house.model.red <- stepAIC(house.model, direction = "both", trace = FALSE)
 house.cook <- cooks.distance(house.model.red)
 house.cutoff <- 4 / nrow(house.train)
@@ -303,6 +353,9 @@ house.model.final <- update(house.model.red, data = house.train.new)
 house.prediction <- predict(house.model.final, newdata = house.test)
 house.pred.before <- predict(house.model.red, newdata = house.test)
 house.pred.after <- predict(house.model.final, newdata = house.test)
+
+# Repeat the ladder and CV after Cook filtering. This shows whether filtering
+# changes the whole selection process, not just the final reduced model.
 house.clean.model <- lm(price ~ ., data = house.train.new)
 house.clean.ladder <- build_backward_ladder(house.clean.model)
 house.clean.cv <- cv_model_ladder(
@@ -325,6 +378,9 @@ house.clean.model.aic.best <- house.clean.ladder$models[[house.clean.aic.best.id
 house.clean.model.cv.best <- house.clean.ladder$models[[house.clean.cv.best.idx]]
 house.clean.pred.aic.best <- predict(house.clean.model.aic.best, newdata = house.test)
 house.clean.pred.cv.best <- predict(house.clean.model.cv.best, newdata = house.test)
+
+# Sensitivity table: CV validation results before and after Cook filtering.
+# "AIC RMSE" means the CV RMSE at the step selected by AIC.
 house.sensitivity <- data.frame(
   Version = c("Original training data", "Cook-filtered training data"),
   AIC_Best_Step = c(
@@ -353,6 +409,9 @@ names(house.sensitivity.display) <- c(
   "Training Data Used", "AIC Best Step", "AIC RMSE",
   "CV Best Step", "CV RMSE"
 )
+
+# Test table: after choosing models on training data, evaluate predictions on
+# the untouched 20% test set.
 house.test.display <- data.frame(
   Version = c("Original training data", "Cook-filtered training data"),
   AIC_Best_Step = c(
@@ -392,8 +451,11 @@ names(house.test.display) <- c(
 )
 house.cv.gap <- round(house.compare$CV_RMSE[1] - house.compare$CV_RMSE[2], 2)
 house.test.flip <- round(house.compare$Test_RMSE[2] - house.compare$Test_RMSE[1], 2)
+
+# Bootstrap coefficient intervals for the final cleaned model.
 house.boot <- bootstrap_coef_table(house.model.final, house.train.new, B = 200)
 
+# Compact final-model summary table used in the presentation.
 house.summary <- data.frame(
   Metric = c("Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
   Value = c(
@@ -412,6 +474,8 @@ house.predictors <- paste(attr(terms(house.model.final), "term.labels"), collaps
 house.removed <- setdiff(attr(terms(house.model), "term.labels"), attr(terms(house.model.final), "term.labels"))
 house.removed.text <- if (length(house.removed) == 0) "None from the full model" else paste(house.removed, collapse = ", ")
 
+# Two manually defined prediction scenarios. Factor variables explicitly reuse
+# the original factor levels so predict() treats the new rows like real data.
 house.new <- data.frame(
   lotsize = c(5000, 8000),
   bedrooms = c(3, 4),
@@ -429,6 +493,8 @@ house.new <- data.frame(
 house.conf <- predict(house.model.final, newdata = house.new, interval = "confidence")
 house.pred <- predict(house.model.final, newdata = house.new, interval = "prediction")
 
+# CI = uncertainty in the mean fitted price. PI = uncertainty for an individual
+# future house sale, so PI should be wider than CI.
 house.pred.table <- data.frame(
   Scenario = c("Smaller home", "Larger home"),
   Fit = round(house.conf[, "fit"], 0),
@@ -436,11 +502,16 @@ house.pred.table <- data.frame(
   PI = paste0("(", round(house.pred[, "lwr"], 0), ", ", round(house.pred[, "upr"], 0), ")")
 )
 
+# Values used for the CI/PI overlay plot: sort actual fitted values so the
+# green fitted line is readable, then place new prediction examples by fitted
+# value instead of just appending them at the far right.
 house.actual.conf <- predict(house.model.final, interval = "confidence")
 house.actual.pred <- predict(house.model.final, interval = "prediction")
 house.order <- order(house.actual.conf[, "fit"])
 house.fit.x <- house.actual.conf[house.order, "fit"]
 house.new.fit <- house.conf[, "fit"]
+
+# Process table for the slide that summarizes the HousePrices workflow.
 house.process <- data.frame(
   Step = c(
     "Split data",
@@ -467,6 +538,14 @@ house.process <- data.frame(
 )
 
 data("CASchools", package = "AER")
+
+# ── Dataset 2: CASchools analysis pipeline ───────────────────────────────────
+# Goal: predict district test score using class size, demographics, resources,
+# income, English learner share, and district grade type.
+
+# Create modeling variables from the raw AER dataset. Score is the average of
+# reading and math. str is the student-teacher ratio. computer.rate scales
+# computers by enrollment so the variable is comparable across district sizes.
 schools.data <- CASchools
 schools.data$score <- (schools.data$read + schools.data$math) / 2
 schools.data$str <- schools.data$students / schools.data$teachers
@@ -476,11 +555,18 @@ schools.data <- schools.data[, c(
   "expenditure", "income", "english", "grades"
 )]
 
+# Same 80/20 workflow as HousePrices: training data for selection and fitting,
+# held-out test data for final prediction checks.
 index <- sample(1:2, nrow(schools.data), prob = c(.8, .2), replace = TRUE)
 schools.train <- schools.data[index == 1, ]
 schools.test <- schools.data[index == 2, ]
+
+# Full CASchools model and AIC-based backward ladder.
 schools.model <- lm(score ~ ., data = schools.train)
 schools.ladder <- build_backward_ladder(schools.model)
+
+# Repeated CV evaluates every ladder step on validation folds from the training
+# data. The test set is still untouched at this point.
 schools.cv <- cv_model_ladder(
   data = schools.train,
   response_name = "score",
@@ -490,6 +576,8 @@ schools.cv <- cv_model_ladder(
   seed = 4310
 )
 schools.cv.summary <- summarize_cv_results(schools.cv)
+
+# Compare AIC-selected and CV-selected steps on the same ladder.
 schools.aic.best.idx <- which.min(schools.ladder$steps$aic)
 schools.cv.best.idx <- which.min(schools.cv.summary$RMSE)
 schools.model.aic.best <- schools.ladder$models[[schools.aic.best.idx]]
@@ -520,6 +608,10 @@ schools.compare <- data.frame(
 )
 schools.compare[, 4:5] <- round(schools.compare[, 4:5], 4)
 schools.cv.labels <- paste0("S", schools.cv.summary$step_num)
+
+# Cook filtering for CASchools follows the same logic as HousePrices: identify
+# influential training districts, remove them from the training fit, and keep
+# the original test set unchanged.
 schools.model.red <- stepAIC(schools.model, direction = "both", trace = FALSE)
 schools.cook <- cooks.distance(schools.model.red)
 schools.cutoff <- 4 / nrow(schools.train)
@@ -528,6 +620,9 @@ schools.model.final <- update(schools.model.red, data = schools.train.new)
 schools.prediction <- predict(schools.model.final, newdata = schools.test)
 schools.pred.before <- predict(schools.model.red, newdata = schools.test)
 schools.pred.after <- predict(schools.model.final, newdata = schools.test)
+
+# Rerun model-selection and CV after Cook filtering so the sensitivity analysis
+# compares full before/after selection curves, not only one final model.
 schools.clean.model <- lm(score ~ ., data = schools.train.new)
 schools.clean.ladder <- build_backward_ladder(schools.clean.model)
 schools.clean.cv <- cv_model_ladder(
@@ -550,6 +645,8 @@ schools.clean.model.aic.best <- schools.clean.ladder$models[[schools.clean.aic.b
 schools.clean.model.cv.best <- schools.clean.ladder$models[[schools.clean.cv.best.idx]]
 schools.clean.pred.aic.best <- predict(schools.clean.model.aic.best, newdata = schools.test)
 schools.clean.pred.cv.best <- predict(schools.clean.model.cv.best, newdata = schools.test)
+
+# Sensitivity table for validation RMSE before/after Cook filtering.
 schools.sensitivity <- data.frame(
   Version = c("Original training data", "Cook-filtered training data"),
   AIC_Best_Step = c(
@@ -578,6 +675,9 @@ names(schools.sensitivity.display) <- c(
   "Training Data Used", "AIC Best Step", "AIC RMSE",
   "CV Best Step", "CV RMSE"
 )
+
+# Held-out test table. This is separate from CV because it uses the locked-away
+# 20% test data, not validation folds from the training data.
 schools.test.display <- data.frame(
   Version = c("Original training data", "Cook-filtered training data"),
   AIC_Best_Step = c(
@@ -615,8 +715,11 @@ schools.test.display <- data.frame(
 names(schools.test.display) <- c(
   "Training Data Used", "AIC Best Step", "CV Best Step", "Held-out Test RMSE"
 )
+
+# Bootstrap intervals for the final cleaned CASchools model.
 schools.boot <- bootstrap_coef_table(schools.model.final, schools.train.new, B = 200)
 
+# Compact summary objects for final-model slides.
 schools.summary <- data.frame(
   Metric = c("Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
   Value = c(
@@ -635,6 +738,13 @@ schools.predictors <- paste(attr(terms(schools.model.final), "term.labels"), col
 schools.removed <- setdiff(attr(terms(schools.model), "term.labels"), attr(terms(schools.model.final), "term.labels"))
 schools.removed.text <- if (length(schools.removed) == 0) "None from the full model" else paste(schools.removed, collapse = ", ")
 
+# ── CASchools appendix: district stratification and interactions ──────────────
+# The main model showed grades as an important district-type indicator. The
+# appendix checks whether KK-06 and KK-08 districts behave differently enough to
+# justify separate interpretation or interaction terms.
+
+# Use the same shared predictors in both district-specific models so the
+# coefficient tables compare like with like.
 schools.shared.terms <- c("str", "calworks", "lunch", "income", "english")
 schools.shared.formula <- as.formula(
   paste("score ~", paste(schools.shared.terms, collapse = " + "))
@@ -645,6 +755,9 @@ schools.stratified.fits <- lapply(schools.strata, function(g) {
 })
 names(schools.stratified.fits) <- schools.strata
 
+# Summarize each stratified fit. Adjusted R2 can rise after splitting because
+# each model is allowed to fit one district type separately, but that does not
+# automatically mean the split generalizes better.
 schools.stratified.summary <- do.call(
   rbind,
   lapply(schools.strata, function(g) {
@@ -694,6 +807,7 @@ names(schools.within_group.compare.display) <- c(
 kk06.gain <- schools.within_group.compare$Gain[schools.within_group.compare$District.Type == "KK-06"]
 kk08.gain <- schools.within_group.compare$Gain[schools.within_group.compare$District.Type == "KK-08"]
 
+# Estimates and p-values from separate KK-06 and KK-08 regressions.
 schools.stratified.term.display <- data.frame(Term = schools.shared.terms)
 for (g in schools.strata) {
   fit.summary <- coef(summary(schools.stratified.fits[[g]]))[schools.shared.terms, , drop = FALSE]
@@ -723,6 +837,7 @@ schools.stratified.term.compact <- data.frame(
   check.names = FALSE
 )
 
+# Confidence intervals for the stratified coefficient plot.
 schools.stratified.coef <- do.call(
   rbind,
   lapply(schools.strata, function(g) {
@@ -747,6 +862,9 @@ schools.stratified.coef$District.Type <- factor(
   levels = schools.strata
 )
 
+# Interaction model keeps the data pooled but allows each predictor slope to
+# differ by district type. The ANOVA tests whether adding all interactions
+# improves fit compared with the main-effects model.
 schools.interaction.model <- lm(
   score ~ (str + calworks + lunch + income + english) * grades,
   data = schools.train.new
@@ -780,6 +898,9 @@ schools.interaction.p.value <- trimws(format.pval(
   eps = 1e-16
 ))
 
+# Convert interaction coefficients into direct KK-06 and KK-08 slopes. This is
+# easier to present than raw interaction terms because it answers, "What is the
+# slope within each district type?"
 schools.interaction.slope.display <- do.call(
   rbind,
   lapply(schools.shared.terms, function(term) {
@@ -829,6 +950,8 @@ schools.interaction.slope.compact <- data.frame(
   check.names = FALSE
 )
 
+# Prediction grid for the interaction plot: vary income across its observed
+# range while holding the other predictors at their medians.
 schools.interaction.grid <- expand.grid(
   income = seq(min(schools.train.new$income), max(schools.train.new$income), length.out = 100),
   grades = factor(schools.strata, levels = schools.strata)
@@ -842,6 +965,7 @@ schools.interaction.grid$fit <- predict(
   newdata = schools.interaction.grid
 )
 
+# Two district prediction scenarios for CI/PI examples.
 schools.new <- data.frame(
   str = c(18, 22),
   calworks = c(10, 45),
@@ -853,6 +977,7 @@ schools.new <- data.frame(
   grades = factor(c("KK-06", "KK-08"), levels = levels(schools.data$grades))
 )
 
+# CIs/PIs for the scenario table.
 schools.conf <- predict(
   schools.model.final,
   newdata = schools.new,
@@ -872,11 +997,14 @@ schools.pred.table <- data.frame(
   PI = paste0("(", round(schools.pred[, "lwr"], 2), ", ", round(schools.pred[, "upr"], 2), ")")
 )
 
+# Values used for the CASchools CI/PI overlay plot.
 schools.actual.conf <- predict(schools.model.final, interval = "confidence")
 schools.actual.pred <- predict(schools.model.final, interval = "prediction")
 schools.order <- order(schools.actual.conf[, "fit"])
 schools.fit.x <- schools.actual.conf[schools.order, "fit"]
 schools.new.fit <- schools.conf[, "fit"]
+
+# Process table for the slide that summarizes the CASchools workflow.
 schools.process <- data.frame(
   Step = c(
     "Split data",
@@ -904,6 +1032,13 @@ schools.process <- data.frame(
 ```
 
 ```{r}
+# ── Part II: Finance application setup ───────────────────────────────────────
+# Goal: use regression-style thinking in finance by comparing individual stocks
+# with the S&P 500 market benchmark. The finance section studies return, risk,
+# market correlation, CAPM alpha/beta, and rolling market exposure.
+
+# Six large NYSE-listed companies from different sectors. SP500 is pulled later
+# as a benchmark only, not as one of the stock choices.
 finance.stocks <- data.frame(
   Ticker = c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA"),
   Company = c(
@@ -922,8 +1057,11 @@ finance.stocks <- data.frame(
     "Industrials",
     "Aerospace"
   )
-) # Changed to Retail & Wholesale"
+)
 
+# Pull adjusted closing-price histories from Yahoo Finance for the six stocks
+# and the S&P 500 benchmark. The date window is fixed so the project is
+# reproducible if run later.
 JPM.f <- getSymbols("JPM", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 JNJ.f <- getSymbols("JNJ", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 XOM.f <- getSymbols("XOM", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
@@ -932,6 +1070,9 @@ CAT.f <- getSymbols("CAT", src = "yahoo", from = "2023-01-01", to = "2025-12-31"
 BA.f <- getSymbols("BA", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 GSPC.f <- getSymbols("^GSPC", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 
+# Closing prices are useful for the price-history slide. SP500 stays in this
+# object for return calculations but is intentionally excluded from the stock
+# close-price chart because it is a benchmark index, not a peer stock.
 finance.close <- na.omit(merge(
   JPM = Cl(JPM.f),
   JNJ = Cl(JNJ.f),
@@ -943,6 +1084,8 @@ finance.close <- na.omit(merge(
 ))
 colnames(finance.close) <- c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA", "SP500")
 
+# Convert prices into arithmetic daily returns. Returns are used instead of
+# prices for risk, correlation, CAPM, and rolling-window calculations.
 finance.ret <- na.omit(merge(
   dailyReturn(Cl(JPM.f), type = "arithmetic"),
   dailyReturn(Cl(JNJ.f), type = "arithmetic"),
@@ -955,6 +1098,8 @@ finance.ret <- na.omit(merge(
 colnames(finance.ret) <- c("JPM", "JNJ", "XOM", "WMT", "CAT","BA", "SP500")
 finance.ret.mat <- coredata(finance.ret)
 
+# Annualized return approximates expected yearly performance. Annualized risk
+# is daily return standard deviation scaled by sqrt(252) trading days.
 finance.annual <- data.frame(
   Ticker = colnames(finance.ret),
   Annual_Return = round(colMeans(finance.ret.mat) * 252, 4),
@@ -962,12 +1107,17 @@ finance.annual <- data.frame(
 )
 rownames(finance.annual) <- NULL
 
+# Correlation matrix and cumulative returns support the heatmap and "growth of
+# $1" slides.
 finance.corr <- round(cor(finance.ret.mat), 3)
 finance.cum <- xts(
   apply(1 + finance.ret.mat, 2, cumprod),
   order.by = index(finance.ret)
 )
 
+# CAPM regression for each stock: daily stock return = alpha + beta * market
+# return. Beta measures market sensitivity; R-squared measures how much of the
+# stock's movement is explained by SP500 movement.
 finance.capm <- data.frame(
   Ticker = finance.stocks$Ticker,
   Alpha_Daily = rep(NA, 6),
@@ -988,6 +1138,7 @@ for (i in 1:6) {
 finance.capm[, 2:5] <- round(finance.capm[, 2:5], 4)
 rownames(finance.capm) <- NULL
 
+# Combined risk-return-market-correlation table used in the scatterplots.
 finance.compare <- data.frame(
   Ticker = finance.stocks$Ticker,
   Annual_Return = finance.annual$Annual_Return[match(finance.stocks$Ticker, finance.annual$Ticker)],
@@ -995,7 +1146,10 @@ finance.compare <- data.frame(
   Corr_SP500 = round(cor(finance.ret.mat[, finance.stocks$Ticker], finance.ret.mat[, "SP500"]), 4)
 )
 rownames(finance.compare) <- NULL
-finance.label.pos <- c(2, 4, 1, 2, 4)
+
+# Display and label helpers keep table headers readable and prevent plot labels
+# from covering points too much.
+finance.label.pos <- c(2, 4, 1, 2, 4, 3)
 finance.annual.display <- finance.annual
 names(finance.annual.display) <- c("Ticker", "Annual Return", "Annual Risk")
 finance.compare.display <- finance.compare
@@ -1017,6 +1171,7 @@ finance.worst.cum <- finance.stocks$Ticker[
   which.min(as.numeric(last(finance.cum[, finance.stocks$Ticker])))
 ]
 
+# Process table for the finance methods slide.
 finance.process <- data.frame(
   Step = c(
     "Pull close prices",
@@ -1040,6 +1195,9 @@ finance.process <- data.frame(
   )
 )
 
+# Rolling beta and rolling correlation use 60 trading days at a time. These
+# plots show whether each stock's market exposure is stable or changes over
+# time instead of relying on one full-period CAPM estimate.
 finance.roll.beta <- na.omit(merge(
   JPM = rolling_market_stat(finance.ret[, "JPM"], finance.ret[, "SP500"], stat = "beta"),
   JNJ = rolling_market_stat(finance.ret[, "JNJ"], finance.ret[, "SP500"], stat = "beta"),
@@ -1066,14 +1224,14 @@ class: center, middle, inverse
 ## Part I: Two Regression Datasets
 ## Part II: Finance Application
 
-<span class="accent">HousePrices, CASchools, and a 5-stock NYSE portfolio</span>
+<span class="accent">HousePrices, CASchools, and a 6-stock NYSE portfolio</span>
 
 ---
 
 ## Roadmap
 
 - Part I uses two medium-sized datasets with optimal-model workflows.
-- Part II uses five NYSE stocks from different industries plus the
+- Part II uses six NYSE stocks from different industries plus the
   S&P 500 benchmark.
 - Every section shows methods, interim process steps, diagnostics,
   extra validation, and final interpretation.
@@ -1085,6 +1243,8 @@ class: small-table compact
 ## Part I: Regression Methods
 
 ```{r}
+# Display the high-level Part I workflow so the audience sees the repeated
+# modeling structure before the two datasets are shown.
 kable(
   data.frame(
     Step = c(
@@ -1133,6 +1293,7 @@ kable(
 
 .pull-right[
 ```{r}
+# Simple dataset-audit table: row count, variable count, and missingness.
 kable(
   data.frame(
     Item = c("Rows", "Columns", "Missing"),
@@ -1150,6 +1311,8 @@ class: plot-slide
 ## HousePrices: Exploratory Overview
 
 ```{r fig.width=9.5, fig.height=4.8}
+# Three quick EDA views: response distribution, a strong continuous predictor,
+# and a simple count predictor. These justify using multiple predictors later.
 par(mfrow = c(1, 3), mar = c(4.5, 4, 3, 1))
 
 hist(
@@ -1195,6 +1358,7 @@ class: small-table
 ## HousePrices: Interim Process
 
 ```{r}
+# Print the HousePrices workflow table created in the setup chunk.
 kable(house.process, row.names = FALSE)
 ```
 
@@ -1208,6 +1372,8 @@ class: plot-slide
 ## HousePrices: CV Across the Selection Ladder
 
 ```{r fig.width=9.2, fig.height=4.7}
+# The boxplot shows all 30 validation RMSE values per ladder step; the blue
+# line connects the mean CV RMSE for each step.
 par(mar = c(7, 4.5, 4, 1))
 
 boxplot(
@@ -1254,6 +1420,7 @@ class: small-table
 ## HousePrices: AIC Step vs CV Step
 
 ```{r}
+# Table version of the AIC-vs-CV decision for HousePrices.
 kable(house.compare.display, row.names = FALSE)
 ```
 
@@ -1277,6 +1444,8 @@ class: small-table
   - We use "Cook Filtering" to find and remove those kinds of sales, then check if it helped.
 
 ```{r}
+# Validation sensitivity table: compares all training rows with Cook-filtered
+# training rows.
 kable(house.sensitivity.display, row.names = FALSE)
 # This prints the FIRST table on the slide.
 # It compares two situations:
@@ -1297,6 +1466,8 @@ kable(house.sensitivity.display, row.names = FALSE)
   that's a big deal. If it just improves accuracy, that's less serious.
 
 ```{r}
+# Held-out test table: evaluates the selected models on the untouched 20% test
+# set after all training-set decisions are made.
 kable(house.test.display, row.names = FALSE)
 # This prints the SECOND table on the slide.
 # This table is the "final exam" for our model.
@@ -1323,6 +1494,8 @@ class: small-table plot-slide
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
 ```{r fig.width=9.2, fig.height=4.6}
+# Compare CV behavior before and after Cook filtering using the same y-axis.
+# Left/right boxplots show fold-level RMSE; the middle plot overlays means.
 par(mfrow = c(1, 3), mar = c(7, 4.2, 3.5, 1))
 
 boxplot(
@@ -1436,6 +1609,7 @@ class: small-table compact
   appear to add complementary signal rather than redundant overlap.
 
 ```{r}
+# Final-model metrics after Cook filtering.
 kable(house.summary, row.names = FALSE)
 ```
 
@@ -1446,6 +1620,7 @@ class: tiny-table compact small-title
 ## HousePrices: Final Model Terms
 
 ```{r}
+# Coefficient table for the final HousePrices model, sorted by p-value.
 kable(house.key, row.names = FALSE)
 ```
 
@@ -1463,6 +1638,8 @@ class: plot-slide small-table
 ## HousePrices: Diagnostics
 
 ```{r fig.width=9, fig.height=4.2}
+# Visual residual checks: normality with QQ plot and equal-variance pattern
+# with residuals vs fitted values.
 par(mfrow = c(1, 2))
 qqnorm(house.model.final$residuals, main = "QQ Plot")
 qqline(house.model.final$residuals)
@@ -1479,6 +1656,7 @@ par(mfrow = c(1, 1))
 ```
 
 ```{r}
+# Formal diagnostic p-values corresponding to the residual-check slide.
 kable(house.diag, row.names = FALSE)
 ```
 
@@ -1492,6 +1670,8 @@ class: plot-slide
 ## HousePrices: Bootstrap Coefficient Intervals
 
 ```{r fig.width=9.2, fig.height=5.2}
+# Prepare the bootstrap coefficient interval plot. The intercept is removed
+# because it is on a much larger scale than the predictor coefficients.
 house.boot.plot <- subset(house.boot, term != "(Intercept)")
 house.boot.plot <- house.boot.plot[nrow(house.boot.plot):1, ]
 
@@ -1532,6 +1712,8 @@ class: small-table
 ## HousePrices: Prediction Examples
 
 ```{r}
+# Show fitted values, confidence intervals, and prediction intervals for the
+# two manually defined house examples.
 kable(house.pred.table, row.names = FALSE)
 ```
 
@@ -1548,6 +1730,8 @@ class: plot-slide
 ## HousePrices: CI and PI Overlay
 
 ```{r fig.width=9.5, fig.height=4.7}
+# Overlay fitted means, CIs, and PIs on the actual cleaned training data.
+# New prediction examples are plotted at their fitted x-location.
 plot(
   house.fit.x,
   house.train.new$price[house.order],
@@ -1587,6 +1771,8 @@ class: plot-slide
 ## HousePrices: Predicted vs Actual (Test Set)
 
 ```{r fig.width=9, fig.height=5.0}
+# Final visual check on the held-out test set: points near the 45-degree line
+# are accurate predictions.
 plot(
   house.prediction,
   house.test$price,
@@ -1632,6 +1818,7 @@ legend(
 
 .pull-right[
 ```{r}
+# Simple dataset-audit table for the transformed CASchools analysis data.
 kable(
   data.frame(
     Item = c("Rows", "Columns", "Missing"),
@@ -1649,6 +1836,8 @@ class: plot-slide
 ## CASchools: Exploratory Overview
 
 ```{r fig.width=9.5, fig.height=4.8}
+# EDA focuses on the response and the two strongest socioeconomic patterns:
+# subsidized lunch share and district income.
 par(mfrow = c(1, 3), mar = c(4.5, 4, 3, 1))
 
 hist(
@@ -1694,6 +1883,7 @@ class: small-table
 ## CASchools: Interim Process
 
 ```{r}
+# Print the CASchools workflow table created in the setup chunk.
 kable(schools.process, row.names = FALSE)
 ```
 
@@ -1707,6 +1897,8 @@ class: plot-slide
 ## CASchools: CV Across the Selection Ladder
 
 ```{r fig.width=9.2, fig.height=4.7}
+# Same CV ladder idea as HousePrices: each box contains 30 validation RMSEs
+# for one model step, and the line shows the average across those folds.
 par(mar = c(7, 4.5, 4, 1))
 
 boxplot(
@@ -1754,6 +1946,7 @@ class: small-table
 ## CASchools: AIC Step vs CV Step
 
 ```{r}
+# Table version of the AIC-vs-CV decision for CASchools.
 kable(schools.compare.display, row.names = FALSE)
 ```
 
@@ -1767,6 +1960,8 @@ class: small-table
 ## CASchools: Sensitivity to Cook Filtering
 
 ```{r}
+# Validation sensitivity table: compares repeated-CV RMSE before and after
+# influential districts are removed from the training data.
 kable(schools.sensitivity.display, row.names = FALSE)
 ```
 
@@ -1774,6 +1969,7 @@ kable(schools.sensitivity.display, row.names = FALSE)
   the selected CV step or the full validation curve.
 
 ```{r}
+# Held-out test table: final prediction check on the 20% test set.
 kable(schools.test.display, row.names = FALSE)
 ```
 
@@ -1791,6 +1987,8 @@ class: small-table plot-slide
 ## CASchools: CV Ladder Before and After Cook Filtering
 
 ```{r fig.width=9.2, fig.height=4.6}
+# Same before/after Cook-filtering plot structure used for HousePrices. The
+# shared y-axis makes the validation-error change visually comparable.
 par(mfrow = c(1, 3), mar = c(7, 4.2, 3.5, 1))
 
 boxplot(
@@ -1900,12 +2098,14 @@ class: tiny-table compact
 
 .pull-left[
 ```{r}
+# Left table gives overall final-model fit and held-out test performance.
 kable(schools.summary, row.names = FALSE)
 ```
 ]
 
 .pull-right[
 ```{r}
+# Right table gives final-model coefficient estimates and p-values.
 kable(schools.key, row.names = FALSE)
 ```
 ]
@@ -1926,6 +2126,7 @@ class: plot-slide small-table
 ## CASchools: Diagnostics
 
 ```{r fig.width=9, fig.height=4.2}
+# Visual residual checks for the final CASchools model.
 par(mfrow = c(1, 2))
 qqnorm(schools.model.final$residuals, main = "QQ Plot")
 qqline(schools.model.final$residuals)
@@ -1942,6 +2143,7 @@ par(mfrow = c(1, 1))
 ```
 
 ```{r}
+# Formal diagnostic p-values corresponding to the visual residual checks.
 kable(schools.diag, row.names = FALSE)
 ```
 
@@ -1956,6 +2158,7 @@ class: plot-slide
 ## CASchools: Bootstrap Coefficient Intervals
 
 ```{r fig.width=9.2, fig.height=5.2}
+# Prepare the bootstrap coefficient interval plot for CASchools.
 schools.boot.plot <- subset(schools.boot, term != "(Intercept)")
 schools.boot.plot <- schools.boot.plot[nrow(schools.boot.plot):1, ]
 
@@ -1996,6 +2199,8 @@ class: small-table
 ## CASchools: Prediction Examples
 
 ```{r}
+# Show fitted values, confidence intervals, and prediction intervals for the
+# two manually defined district examples.
 kable(schools.pred.table, row.names = FALSE)
 ```
 
@@ -2011,6 +2216,7 @@ class: plot-slide
 ## CASchools: CI and PI Overlay
 
 ```{r fig.width=9.5, fig.height=4.7}
+# Overlay fitted means, CIs, and PIs on the cleaned CASchools training data.
 plot(
   schools.fit.x,
   schools.train.new$score[schools.order],
@@ -2047,6 +2253,7 @@ class: plot-slide
 ## CASchools: Predicted vs Actual (Test Set)
 
 ```{r fig.width=9, fig.height=5.0}
+# Final visual check on the held-out CASchools test set.
 plot(
   schools.prediction,
   schools.test$score,
@@ -2088,6 +2295,7 @@ class: small-table compact
 ## Finance: Method Steps
 
 ```{r}
+# Print the finance workflow table created in the setup chunk.
 kable(finance.process, row.names = FALSE)
 ```
 
@@ -2103,11 +2311,12 @@ class: small-table
 ## Finance: Stock Selection
 
 ```{r}
+# Display the six stock choices and their sectors.
 kable(finance.stocks, row.names = FALSE)
 ```
 
 - All six stocks are NYSE-listed.
-- Industries are intentionally different to avoid choosing five similar
+- Industries are intentionally different to avoid choosing six similar
   firms.
 - Benchmark: `^GSPC` for the S&P 500.
 - The cross-sector mix gives the portfolio visibly different beta and
@@ -2120,6 +2329,7 @@ class: plot-slide
 ## Finance: Daily Return Distributions
 
 ```{r fig.width=9.5, fig.height=5.0}
+# Compare daily return distributions for the six selected stocks.
 par(mfrow = c(2, 3), mar = c(4, 3.5, 3, 1))
 
 for (ticker in finance.stocks$Ticker) {
@@ -2148,6 +2358,8 @@ class: plot-slide
 ## Finance: Close Prices
 
 ```{r fig.width=9.5, fig.height=5.2}
+# Plot raw closing prices for the six stocks only. SP500 is excluded here
+# because it is a benchmark index, not a peer stock.
 par(mfrow = c(3, 2))
 
 plot(index(finance.close), as.numeric(finance.close[, "JPM"]),
@@ -2168,9 +2380,6 @@ plot(index(finance.close), as.numeric(finance.close[, "CAT"]),
 plot(index(finance.close), as.numeric(finance.close[, "BA"]),
      type = "l", xlab = "Date", ylab = "Close", main = "BA")
 
-plot(index(finance.close), as.numeric(finance.close[, "SP500"]),
-     type = "l", xlab = "Date", ylab = "Close", main = "SP500")
-
 par(mfrow = c(1, 1))
 ```
 
@@ -2185,6 +2394,7 @@ class: plot-slide
 ## Finance: Annualized Return and Risk
 
 ```{r fig.width=8.8, fig.height=5.0}
+# Risk-return scatter: x is annualized volatility, y is annualized mean return.
 plot(
   finance.annual$Annual_Risk,
   finance.annual$Annual_Return,
@@ -2222,12 +2432,15 @@ class: small-table plot-slide compact small-title
 
 .pull-left[
 ```{r}
+# Table gives the numeric risk, return, and market-correlation values.
 kable(finance.compare.display, row.names = FALSE)
 ```
 ]
 
 .pull-right[
 ```{r fig.width=4.8, fig.height=4.4}
+# Bubble chart: position shows market correlation and return; bubble size
+# represents annualized risk.
 plot(
   finance.compare$Corr_SP500,
   finance.compare$Annual_Return,
@@ -2275,6 +2488,8 @@ class: plot-slide
 ## Finance: Linking Risk-Return and Market Correlation
 
 ```{r fig.width=9.0, fig.height=5.0}
+# This custom plot puts two views on the same y-axis: risk-return on the left
+# and market-correlation-return on the right. Dotted segments link each stock.
 risk.x <- 0.8 + (finance.compare$Annual_Risk - min(finance.compare$Annual_Risk)) /
   diff(range(finance.compare$Annual_Risk)) * 1.0
 corr.x <- 3.2 + (finance.compare$Corr_SP500 - min(finance.compare$Corr_SP500)) /
@@ -2329,6 +2544,8 @@ class: plot-slide
 ## Finance: Correlation Heatmap
 
 ```{r fig.width=8.8, fig.height=5.0}
+# Heatmap version of the return-correlation matrix; warmer colors mean stronger
+# positive return co-movement.
 par(mar = c(6, 6, 4, 2))
 
 image(
@@ -2369,6 +2586,8 @@ class: plot-slide
 ## Finance: Cumulative Returns
 
 ```{r fig.width=9, fig.height=4.8}
+# Convert daily returns into a growth-of-one-dollar path for each stock and
+# the SP500 benchmark.
 matplot(
   index(finance.cum),
   coredata(finance.cum),
@@ -2403,6 +2622,8 @@ class: small-table
 ## Finance: Alpha, Beta, and R-Squared
 
 ```{r}
+# CAPM summary table from six separate regressions of stock returns on SP500
+# returns.
 kable(finance.capm.display, row.names = FALSE)
 ```
 
@@ -2421,6 +2642,8 @@ class: plot-slide
 ## Finance: CAPM Fitted vs Actual Returns
 
 ```{r fig.width=9.5, fig.height=5.0}
+# For each stock, re-fit the CAPM regression and compare actual daily returns
+# against the fitted daily returns from the market factor.
 par(mfrow = c(2, 3), mar = c(4, 3.5, 3, 1))
 
 for (ticker in finance.stocks$Ticker) {
@@ -2453,6 +2676,8 @@ class: plot-slide
 ## Finance: Rolling 60-Day Beta
 
 ```{r fig.width=9, fig.height=4.8}
+# Plot the rolling market beta created in the setup chunk. Each point uses the
+# prior 60 trading days, so changes show time-varying market exposure.
 par(mar = c(7, 4.1, 4.1, 2.1))
 
 matplot(
@@ -2496,6 +2721,8 @@ class: plot-slide
 ## Finance: Rolling 60-Day Correlation
 
 ```{r fig.width=9, fig.height=4.8}
+# Plot the rolling 60-day correlation with SP500. This isolates co-movement
+# from volatility, unlike beta.
 par(mar = c(7, 4.1, 4.1, 2.1))
 
 matplot(
@@ -2564,6 +2791,8 @@ class: small-table small-title
 ## Appendix: CASchools Within-Group Fit Check
 
 ```{r}
+# Compare pooled-model fit inside each district type against models fit
+# separately within each district type.
 kable(schools.within_group.compare.display, row.names = FALSE)
 ```
 
@@ -2582,6 +2811,7 @@ class: tiny-table compact small-title
 ## Appendix: CASchools Stratified Coefficients and P Values
 
 ```{r}
+# Compact coefficient table from the separate KK-06 and KK-08 models.
 kable(schools.stratified.term.compact, row.names = FALSE)
 ```
 
@@ -2598,10 +2828,13 @@ class: tiny-table compact small-title
 ## Appendix: CASchools Interaction Slopes by District Type
 
 ```{r}
+# Joint test: does adding all district-type interactions improve the model?
 kable(schools.interaction.anova.display, row.names = FALSE)
 ```
 
 ```{r}
+# Reconstructed district-specific slopes and p-values from the interaction
+# model. This is more interpretable than raw treatment-coded interactions.
 kable(schools.interaction.slope.compact, row.names = FALSE)
 ```
 
@@ -2620,6 +2853,8 @@ class: plot-slide compact small-title
 ## Appendix: CASchools Interaction Plot Explained
 
 ```{r fig.width=8.8, fig.height=4.4}
+# Visualize the interaction model by varying income and holding other
+# predictors at medians, separately for KK-06 and KK-08.
 plot(
   range(schools.interaction.grid$income),
   range(schools.interaction.grid$fit),
