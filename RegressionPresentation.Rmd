@@ -1725,18 +1725,17 @@ class: small-table
   - We use "Cook Filtering" to find and remove those kinds of sales, then check if it helped.
 
 ```{r}
-# Validation sensitivity table: compares all training rows with Cook-filtered
-# training rows.
 kable(house.sensitivity.display, row.names = FALSE)
-# This prints the FIRST table on the slide.
-# It compares two situations:
-#   1. Using ALL the training data (including weird sales)
-#   2. Using CLEANED training data (weird sales removed)
-# For each situation it shows:
-#   - Which model step AIC picked as best
-#   - Which model step CV picked as best
-#   - How big the prediction error (RMSE) was
-# Lower RMSE = better predictions = our model is more accurate
+# Show a neat table of results in the slide.
+# Each row is a different modeling setup:
+#   - One using ALL sales, including odd/extreme ones
+#   - One using CLEANED data after removing overly influential sales
+# The table tells us, for each setup:
+#   - Which step AIC thought was the best model (automatic model chooser)
+#   - Which step cross-validation (CV) thought was the best (prediction-focused chooser)
+#   - How big the typical prediction error was (RMSE: lower is better)
+# So this table answers:
+#   "Do weird sales change which model we pick, or mainly how accurate it is?"
 ```
 
 - The upper table asks whether influential sales change model choice or mostly change the size of the validation error.
