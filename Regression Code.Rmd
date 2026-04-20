@@ -1751,40 +1751,36 @@ kable(house.compare.display, row.names = FALSE)
 ## HousePrices: Sensitivity to Cook Filtering
 
 ```{r houseprices-sensitivity-to-cook-filtering-14}
-# Validation sensitivity table: compares all training rows with Cook-filtered
-# training rows.
 kable(house.sensitivity.display, row.names = FALSE)
-# This prints the FIRST table on the slide.
-# It compares two situations:
-#   1. Using ALL the training data (including weird sales)
-#   2. Using CLEANED training data (weird sales removed)
-# For each situation it shows:
-#   - Which model step AIC picked as best
-#   - Which model step CV picked as best
-#   - How big the prediction error (RMSE) was
-# Lower RMSE = better predictions = our model is more accurate
+# Show a neat table of results in the slide.
+# Each row is a different modeling setup:
+#   - One using ALL sales, including odd/extreme ones
+#   - One using CLEANED data after removing overly influential sales
+# The table tells us, for each setup:
+#   - Which step AIC thought was the best model (automatic model chooser)
+#   - Which step cross-validation (CV) thought was the best (prediction-focused chooser)
+#   - How big the typical prediction error was (RMSE: lower is better)
+# So this table answers:
+#   "Do weird sales change which model we pick, or mainly how accurate it is?"
 ```
 
 ```{r houseprices-sensitivity-to-cook-filtering-15}
-# Held-out test table: evaluates the selected models on the untouched 20% test
-# set after all training-set decisions are made.
 kable(house.test.display, row.names = FALSE)
-# This prints the SECOND table on the slide.
-# This table is the "final exam" for our model.
-# We locked away 20% of the data at the very start and 
-# never let the model train on it.
-# Now we use it to test how well the model predicts 
-# house prices it has never seen before.
-# Think of it like: the model studied all year (training data),
-# now it's taking the actual exam (test data).
+# Show the performance on the TEST data.
+# The test set is the 20% of houses we set aside at the start and did NOT use for training.
+# This is like the final exam: it checks if our model can predict NEW houses it hasn't seen.
+# The RMSE here is: "On average, how far off are we on these unseen houses?"
+# If test RMSE is similar to validation RMSE, it suggests the model is not overfitted.
 ```
 
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
 ```{r houseprices-cv-ladder-before-and-after-cook-f-16, fig.width=9.2, fig.height=4.6}
-# Compare CV behavior before and after Cook filtering using the same y-axis.
-# Left/right boxplots show fold-level RMSE; the middle plot overlays means.
 par(mfrow = c(1, 3), mar = c(7, 4.2, 3.5, 1))
+# Put 3 plots side by side:
+#   Left: CV results BEFORE filtering
+#   Middle: overlay of average errors before vs after
+#   Right: CV results AFTER filtering
 
 boxplot(
   RMSE ~ factor(step_num, labels = house.cv.labels),
@@ -1796,9 +1792,19 @@ boxplot(
   ylim = house.cv.ylim,
   main = "Before Cook filtering"
 )
+# Each box here shows the spread of prediction errors (RMSE) for a given model step,
+# based on repeated cross-validation BEFORE we remove influential sales.
+# Lower boxes mean better (more accurate) prediction.
+
 lines(seq_len(nrow(house.cv.summary)), house.cv.summary$RMSE, col = "#123c55", lwd = 2)
 points(seq_len(nrow(house.cv.summary)), house.cv.summary$RMSE, pch = 16, col = "#123c55")
+# Overlay the average RMSE for each step as a connected line with points.
+
+
 abline(h = house.aic.cv.rmse, col = "#b83227", lty = 2, lwd = 2)
+# Horizontal dashed line at the RMSE of the model step chosen by AIC.
+# This lets us see how that chosen model compares to others.
+
 legend(
   "topleft",
   legend = c("Mean CV RMSE", "AIC-selected step"),
@@ -1809,6 +1815,8 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Add a simple legend so the audience knows what the line and dashed line mean.
+
 
 plot(
   house.cv.summary$step_num,
@@ -1823,6 +1831,8 @@ plot(
   ylim = house.cv.ylim,
   main = "Mean CV RMSE overlay"
 )
+# Middle plot: just the mean RMSE for each model step BEFORE filtering.
+
 lines(
   house.clean.cv.summary$step_num,
   house.clean.cv.summary$RMSE,
@@ -1831,9 +1841,16 @@ lines(
   lwd = 2,
   col = "#0b6e4f"
 )
+# Add the AFTER-filtering mean RMSE as a second line.
+# Seeing the green line lower than the gray line shows better prediction after filtering.
+
 abline(h = house.aic.cv.rmse, col = "gray40", lty = 2, lwd = 2)
 abline(h = house.clean.aic.cv.rmse, col = "#0b6e4f", lty = 2, lwd = 2)
+# Dashed lines show the RMSEs for the AIC-chosen step before and after filtering.
+
 axis(1, at = house.cv.summary$step_num, labels = house.cv.labels, las = 2, cex.axis = 0.8)
+# Add readable labels for each step on the x-axis.
+
 legend(
   "topleft",
   legend = c("Before Cook", "After Cook", "Before AIC RMSE", "After AIC RMSE"),
@@ -1844,6 +1861,7 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Legend explains which line/point style is which.
 
 boxplot(
   RMSE ~ factor(step_num, labels = house.clean.cv.labels),
@@ -1855,6 +1873,9 @@ boxplot(
   ylim = house.cv.ylim,
   main = "After Cook filtering"
 )
+# Right plot: boxplots of RMSE for each step AFTER removing influential sales.
+# We can compare these directly to the left plot to see if performance improved.
+
 lines(seq_len(nrow(house.clean.cv.summary)), house.clean.cv.summary$RMSE, col = "#123c55", lwd = 2)
 points(seq_len(nrow(house.clean.cv.summary)), house.clean.cv.summary$RMSE, pch = 16, col = "#123c55")
 abline(h = house.clean.aic.cv.rmse, col = "#b83227", lty = 2, lwd = 2)
@@ -1868,8 +1889,12 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Again we show the average RMSE per step and the AIC-chosen step’s error.
+# The important visual is: the whole set of boxes shifts downward after filtering.
 
 par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
+# Reset plotting layout back to the normal single-plot view.
+
 ```
 
 ## HousePrices: Final Model Summary
