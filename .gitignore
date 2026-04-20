@@ -2,4 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+<<<<<<< HEAD
 RegressionPresentation_files/
+=======
+.Rproj.user/
+>>>>>>> 7b6d057a1b92f2c087b1dce005d03ca07bee942d

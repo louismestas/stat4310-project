@@ -4,7 +4,7 @@ author: "Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi,
 date: "`r Sys.Date()`"
 output:
   xaringan::moon_reader:
-    css: ["default", "style.css"]
+    css: ["default", "project-presentation.css"]
     nature:
       ratio: "16:9"
       highlightStyle: github
@@ -22,17 +22,22 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 
-library(AER)
-library(MASS)
-library(car)
-library(lmtest)
-library(ModelMetrics)
-library(broom)
-library(knitr)
-library(quantmod)
+# ── Core Libraries ────────────────────────────────────────────────────────────
 
+library(AER)            # Applied Econometrics with R — CASchools dataset
+library(MASS)           # Modern Applied Statistics — stepAIC() for model selection
+library(car)            # Companion to Applied Regression — vif(), linearHypothesis()
+library(lmtest)         # Regression diagnostic tests — bptest() (Breusch-Pagan), dwtest() (Durbin-Watson)
+library(ModelMetrics)   # Model accuracy metrics — rmse(), mae() for train/test evaluation
+library(broom)          # Tidy model output — tidy(), glance(), augment() for lm() summaries
+library(knitr)          # R Markdown rendering — kable() for formatted tables
+library(quantmod)       # Quantitative finance — getSymbols() to pull NYSE/S&P 500 price data
+
+# Set a consistent seed for reproducibility across all random processes
 set.seed(4310)
 
+# ── Custom Functions ─────────────────────────────────────────────────────────
+# Computes MSE, RMSE, MAE, and out-of-sample R² for a set of actual vs. predicted values
 get_metrics <- function(actual, predicted) {
   data.frame(
     MSE = mse(predicted, actual),
@@ -41,8 +46,10 @@ get_metrics <- function(actual, predicted) {
     Test_R2 = 1 - sum((actual - predicted)^2) /
       sum((actual - mean(actual))^2)
   )
-} # Created a reusable model evaluation function that calculates MSE, RRMSE, MAE, and test R^2.
+}
 
+# Runs Shapiro-Wilk (normality), Breusch-Pagan (constant variance), and
+# Durbin-Watson (independence) tests; returns a tidy p-value table
 get_diag <- function(model) {
   data.frame(
     Test = c("Shapiro-Wilk", "Breusch-Pagan", "Durbin-Watson"),
@@ -52,8 +59,10 @@ get_diag <- function(model) {
       dwtest(model)$p.value
     ), digits = 3, eps = 1e-16))
   )
-} # Takes a regression model an returns a table of diagnostic tests such as Shapiro Wilk, Breusch-Pagan, and Durbin Watson
+}
 
+# Extracts non-intercept coefficients from a model, sorts by p-value (most
+# significant first), and formats estimates and p-values for display
 get_term_table <- function(model) {
   out <- tidy(model)
   out <- out[out$term != "(Intercept)", c("term", "estimate", "p.value")]
@@ -63,7 +72,8 @@ get_term_table <- function(model) {
   names(out) <- c("Term", "Estimate", "P Value")
   rownames(out) <- NULL
   out
-} # Extracts coef results
+}
+
 
 format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   if (identical(aic_step, cv_step)) {
@@ -71,11 +81,11 @@ format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   } else {
     sprintf("AIC %.2f, CV %.2f", aic_rmse, cv_rmse)
   }
-} # Compares two models
+}
 
 subgroup_r2 <- function(actual, predicted) {
   1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
-} # Computes R^2 for a subgroup
+}
 
 linear_combo_stats <- function(model, weights) {
   beta <- coef(model)
@@ -108,7 +118,11 @@ build_backward_ladder <- function(model) {
     aic = AIC(model),
     removed = NA_character_,
     stringsAsFactors = FALSE
-  ) # Made a backward stepwise model that reoves predictors one at a time using AIC until a reduced model is achieved
+<<<<<<< Updated upstream
+  ) # Made a backward stepwise model that removes predictors one at a time using AIC until a reduced model is achieved
+=======
+  )
+>>>>>>> Stashed changes
 
   current_model <- model
 
@@ -890,8 +904,6 @@ schools.process <- data.frame(
 ```
 
 ```{r}
-
-# Creating a reference table
 finance.stocks <- data.frame(
   Ticker = c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA"),
   Company = c(
@@ -906,11 +918,11 @@ finance.stocks <- data.frame(
     "Financial Services",
     "Healthcare",
     "Energy",
-    "Consumer Defensive",
+    "Retail & Wholesale",
     "Industrials",
     "Aerospace"
   )
-)
+) # Changed to Retail & Wholesale"
 
 JPM.f <- getSymbols("JPM", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 JNJ.f <- getSymbols("JNJ", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
@@ -919,8 +931,6 @@ WMT.f <- getSymbols("WMT", src = "yahoo", from = "2023-01-01", to = "2025-12-31"
 CAT.f <- getSymbols("CAT", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 BA.f <- getSymbols("BA", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 GSPC.f <- getSymbols("^GSPC", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
-
-# Pulling data from Yahoo Finance
 
 finance.close <- na.omit(merge(
   JPM = Cl(JPM.f),
@@ -933,8 +943,6 @@ finance.close <- na.omit(merge(
 ))
 colnames(finance.close) <- c("JPM", "JNJ", "XOM", "WMT", "CAT", "BA", "SP500")
 
-# Cleaning the dataframe, building a close price column, combing stocks by date, and removing missing values.
-
 finance.ret <- na.omit(merge(
   dailyReturn(Cl(JPM.f), type = "arithmetic"),
   dailyReturn(Cl(JNJ.f), type = "arithmetic"),
@@ -945,9 +953,6 @@ finance.ret <- na.omit(merge(
   dailyReturn(Cl(GSPC.f), type = "arithmetic")
 ))
 colnames(finance.ret) <- c("JPM", "JNJ", "XOM", "WMT", "CAT","BA", "SP500")
-
-# Calculating daily returns for each stock ^ and creating a correlation matrix v 
-
 finance.ret.mat <- coredata(finance.ret)
 
 finance.annual <- data.frame(
@@ -957,35 +962,30 @@ finance.annual <- data.frame(
 )
 rownames(finance.annual) <- NULL
 
-# Creating an annual return + risk dataframe
-
-finance.corr <- round(cor(finance.ret.mat), 3) # measuring how stocks move togther
-
-
+finance.corr <- round(cor(finance.ret.mat), 3)
 finance.cum <- xts(
   apply(1 + finance.ret.mat, 2, cumprod),
   order.by = index(finance.ret)
-) # taking daily returns and turning it into growth over time. Basically how $1 invested grows over time
+)
 
 finance.capm <- data.frame(
   Ticker = finance.stocks$Ticker,
-  Alpha_Daily = rep(NA, nrow(finance.stocks)),
-  Alpha_Annual = rep(NA, nrow(finance.stocks)),
-  Beta = rep(NA, nrow(finance.stocks)),
-  R_Squared = rep(NA, nrow(finance.stocks))
-) # creating a result table for CAPM values
+  Alpha_Daily = rep(NA, 6),
+  Alpha_Annual = rep(NA, 6),
+  Beta = rep(NA, 6),
+  R_Squared = rep(NA, 6)
+)
 
-for (i in seq_len(nrow(finance.stocks))) {
+for (i in 1:6) {
   stock.name <- finance.stocks$Ticker[i]
   model <- lm(finance.ret.mat[, stock.name] ~ finance.ret.mat[, "SP500"])
   finance.capm$Alpha_Daily[i] <- coef(model)[1]
   finance.capm$Alpha_Annual[i] <- coef(model)[1] * 252
   finance.capm$Beta[i] <- coef(model)[2]
   finance.capm$R_Squared[i] <- summary(model)$r.squared
-} # RESOLVED: 2026-04-19, Thomas Linden - Loop over the six selected stocks only. SP500 remains the benchmark predictor, not a CAPM target stock.
-# Runs linear regression for each stock against the market
+}
 
-finance.capm[, 2:5] <- round(finance.capm[, 2:5], 4) # Cleans alpha, beta, and R^2 to look nice
+finance.capm[, 2:5] <- round(finance.capm[, 2:5], 4)
 rownames(finance.capm) <- NULL
 
 finance.compare <- data.frame(
@@ -993,36 +993,29 @@ finance.compare <- data.frame(
   Annual_Return = finance.annual$Annual_Return[match(finance.stocks$Ticker, finance.annual$Ticker)],
   Annual_Risk = finance.annual$Annual_Risk[match(finance.stocks$Ticker, finance.annual$Ticker)],
   Corr_SP500 = round(cor(finance.ret.mat[, finance.stocks$Ticker], finance.ret.mat[, "SP500"]), 4)
-) # organizing all summary tables
+)
 rownames(finance.compare) <- NULL
-finance.label.pos <- c(2, 4, 1, 2, 4, 3) # ADDING 3 TO INCLUDE BA
+finance.label.pos <- c(2, 4, 1, 2, 4)
 finance.annual.display <- finance.annual
 names(finance.annual.display) <- c("Ticker", "Annual Return", "Annual Risk")
 finance.compare.display <- finance.compare
 names(finance.compare.display) <- c("Ticker", "Annual Return", "Annual Risk", "Corr with SP500")
 finance.capm.display <- finance.capm
 names(finance.capm.display) <- c("Ticker", "Alpha Daily", "Alpha Annual", "Beta", "R Squared")
-finance.top.return <- finance.compare$Ticker[which.max(finance.compare$Annual_Return)] 
-# finds which stock has best annual return
-finance.high.risk <- finance.compare$Ticker[which.max(finance.compare$Annual_Risk)] 
-# High risk
+finance.top.return <- finance.compare$Ticker[which.max(finance.compare$Annual_Return)]
+finance.high.risk <- finance.compare$Ticker[which.max(finance.compare$Annual_Risk)]
 finance.low.risk <- finance.compare$Ticker[which.min(finance.compare$Annual_Risk)]
-# Low risk
-finance.annual.label.pos <- ifelse(finance.annual$Ticker == finance.high.risk, 2, 4) # adjusting label positioning
+finance.annual.label.pos <- ifelse(finance.annual$Ticker == finance.high.risk, 2, 4)
 finance.high.corr <- finance.compare$Ticker[which.max(finance.compare$Corr_SP500)]
-# most market like stock
 finance.low.corr <- finance.compare$Ticker[which.min(finance.compare$Corr_SP500)]
-# Most independent stock
 finance.high.beta <- finance.capm$Ticker[which.max(finance.capm$Beta)]
-# Most aggressve stock against the market
 finance.high.rsq <- finance.capm$Ticker[which.max(finance.capm$R_Squared)]
-# Most explained by movement of market
 finance.best.cum <- finance.stocks$Ticker[
   which.max(as.numeric(last(finance.cum[, finance.stocks$Ticker])))
-] # Best performer over given time period
+]
 finance.worst.cum <- finance.stocks$Ticker[
   which.min(as.numeric(last(finance.cum[, finance.stocks$Ticker])))
-] # Worst performer over given time period
+]
 
 finance.process <- data.frame(
   Step = c(
@@ -1046,7 +1039,7 @@ finance.process <- data.frame(
     "60-day correlation windows"
   )
 )
-# Creating a dataframe with the sequence of steps and details of how it was done.
+
 finance.roll.beta <- na.omit(merge(
   JPM = rolling_market_stat(finance.ret[, "JPM"], finance.ret[, "SP500"], stat = "beta"),
   JNJ = rolling_market_stat(finance.ret[, "JNJ"], finance.ret[, "SP500"], stat = "beta"),
@@ -1054,7 +1047,7 @@ finance.roll.beta <- na.omit(merge(
   WMT = rolling_market_stat(finance.ret[, "WMT"], finance.ret[, "SP500"], stat = "beta"),
   CAT = rolling_market_stat(finance.ret[, "CAT"], finance.ret[, "SP500"], stat = "beta"),
   BA = rolling_market_stat(finance.ret[, "BA"], finance.ret[, "SP500"], stat = "beta")
-)) # Calculating rolling 60-day market relationships, meaning this section measures how values change over time instead of a single beta/correlation for the whole period
+))
 
 finance.roll.corr <- na.omit(merge(
   JPM = rolling_market_stat(finance.ret[, "JPM"], finance.ret[, "SP500"], stat = "correlation"),
@@ -1063,7 +1056,7 @@ finance.roll.corr <- na.omit(merge(
   WMT = rolling_market_stat(finance.ret[, "WMT"], finance.ret[, "SP500"], stat = "correlation"),
   CAT = rolling_market_stat(finance.ret[, "CAT"], finance.ret[, "SP500"], stat = "correlation"),
   BA = rolling_market_stat(finance.ret[, "BA"], finance.ret[, "SP500"], stat = "correlation")
-)) # Computes 60 day correlation with S&P500 to view how each stock moves with the market overtime
+))
 ```
 
 class: center, middle, inverse
@@ -1073,14 +1066,14 @@ class: center, middle, inverse
 ## Part I: Two Regression Datasets
 ## Part II: Finance Application
 
-<span class="accent">HousePrices, CASchools, and a 6-stock NYSE portfolio</span>
+<span class="accent">HousePrices, CASchools, and a 5-stock NYSE portfolio</span>
 
 ---
 
 ## Roadmap
 
 - Part I uses two medium-sized datasets with optimal-model workflows.
-- Part II uses six NYSE stocks from different industries plus the
+- Part II uses five NYSE stocks from different industries plus the
   S&P 500 benchmark.
 - Every section shows methods, interim process steps, diagnostics,
   extra validation, and final interpretation.
@@ -1210,7 +1203,7 @@ kable(house.process, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## HousePrices: CV Across the Selection Ladder
 
@@ -1245,11 +1238,14 @@ legend(
 par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-- `S0` is the full model, and each later step removes one more predictor.
-- Each step shows `30` validation RMSE values from `5` folds repeated
-  `6` times.
-- The green point marks the CV minimum at `S1`; extra trimming starts to
-  give up signal.
+- `S0` is the full model.
+- Each later step removes one more predictor from a nested ladder.
+- Each step shows `30` validation RMSE values because we run `5` folds
+  and repeat that `6` times.
+- The red dashed line marks the AIC-selected step's mean CV RMSE.
+- The green point marks the true CV minimum, which is `S1` here.
+- One early predictor removal improves validation RMSE, but additional
+  trimming starts to give up signal.
 
 ---
 
@@ -1321,7 +1317,7 @@ kable(house.test.display, row.names = FALSE)
 
 ---
 
-class: small-table plot-slide compact small-title
+class: small-table plot-slide
 
 
 ## HousePrices: CV Ladder Before and After Cook Filtering
@@ -1415,14 +1411,14 @@ legend(
 par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-- The whole ladder shifts down after filtering, so influential cases were
-  hurting validation performance across multiple candidate models.
-- Cook filtering improves model stability rather than rescuing one lucky
-  final step.
+- The whole ladder shifts down after filtering, so the influential cases
+  were hurting validation performance across multiple candidate models.
+- Because the whole curve moves down, Cook filtering improves model
+  stability rather than just rescuing one lucky final step.
 
 ---
 
-class: small-table compact small-title
+class: small-table compact
 
 ## HousePrices: Final Model Summary
 
@@ -1462,11 +1458,11 @@ kable(house.key, row.names = FALSE)
 
 ---
 
-class: plot-slide small-table compact small-title diagnostic-slide
+class: plot-slide small-table
 
 ## HousePrices: Diagnostics
 
-```{r fig.width=9, fig.height=3.5}
+```{r fig.width=9, fig.height=4.2}
 par(mfrow = c(1, 2))
 qqnorm(house.model.final$residuals, main = "QQ Plot")
 qqline(house.model.final$residuals)
@@ -1491,12 +1487,11 @@ kable(house.diag, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title short-plot
+class: plot-slide
 
 ## HousePrices: Bootstrap Coefficient Intervals
 
-```{r fig.width=9.2, fig.height=4.3}
-par(mar = c(5.1, 8.2, 4.1, 1.2))
+```{r fig.width=9.2, fig.height=5.2}
 house.boot.plot <- subset(house.boot, term != "(Intercept)")
 house.boot.plot <- house.boot.plot[nrow(house.boot.plot):1, ]
 
@@ -1520,7 +1515,6 @@ segments(
 
 abline(v = 0, lty = "dashed", col = "gray50")
 axis(2, at = seq_len(nrow(house.boot.plot)), labels = house.boot.plot$term, las = 2)
-par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
 - These are empirical 95% intervals from `200` bootstrap resamples of
@@ -1528,6 +1522,8 @@ par(mar = c(5.1, 4.1, 4.1, 2.1))
 - Intervals far from `0` support stable coefficient direction.
 - The intercept is omitted because its much larger scale would compress
   the predictor effects.
+- The most practically important retained terms stay on one side of `0`,
+  which supports stable sign interpretation.
 
 ---
 
@@ -1547,7 +1543,7 @@ kable(house.pred.table, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## HousePrices: CI and PI Overlay
 
@@ -1575,11 +1571,12 @@ segments(house.new.fit, house.conf[, "lwr"], house.new.fit, house.conf[, "upr"],
          col = "#b83227", lwd = 3)
 ```
 
-- Gray points are actual prices, sorted by fitted mean response on the
-  x-axis.
-- The green line is the fitted mean; orange bands show prediction
-  intervals for observed-data rows.
-- Red triangles and bars sit at their fitted locations on the green line.
+- Gray points are actual observed prices.
+- The x-axis is fitted mean response, sorted from low to high.
+- The green line is the fitted mean.
+- Orange bands show PI for observed-data rows.
+- Red triangles and bars now sit at their fitted locations on the green
+  line.
 - The wider orange bands show that individual-home prediction is much
   harder than estimating the mean response.
 
@@ -1705,7 +1702,7 @@ kable(schools.process, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## CASchools: CV Across the Selection Ladder
 
@@ -1741,10 +1738,14 @@ par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
 - The ladder is built from the training-set full model.
-- Each step summarizes `30` validation RMSE values from `5` folds
+- Each step again summarizes `30` validation RMSE values from `5` folds
   repeated `6` times.
-- AIC and CV agree here, which makes the reduced school model more
-  defensible before touching the test set.
+- This checks whether a simpler school-score model is competitive before
+  touching the test set.
+- Here the AIC step and CV step agree, so the red line lands at the best
+  step.
+- Agreement between AIC and CV makes the reduced school model much more
+  defensible.
 
 ---
 
@@ -1785,7 +1786,7 @@ kable(schools.test.display, row.names = FALSE)
 
 ---
 
-class: small-table plot-slide compact small-title
+class: small-table plot-slide
 
 ## CASchools: CV Ladder Before and After Cook Filtering
 
@@ -1879,8 +1880,9 @@ par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
 - The best step stays the same after Cook filtering, but the full curve
-  shifts down.
-- Filtering helps fit quality without changing which predictors matter.
+  shifts down, which makes the selected model look more stable.
+- That means filtering helps fit quality, but it does not change which
+  predictors matter.
 
 ---
 
@@ -1919,11 +1921,11 @@ kable(schools.key, row.names = FALSE)
 
 ---
 
-class: plot-slide small-table compact small-title diagnostic-slide
+class: plot-slide small-table
 
 ## CASchools: Diagnostics
 
-```{r fig.width=9, fig.height=3.5}
+```{r fig.width=9, fig.height=4.2}
 par(mfrow = c(1, 2))
 qqnorm(schools.model.final$residuals, main = "QQ Plot")
 qqline(schools.model.final$residuals)
@@ -1949,12 +1951,11 @@ kable(schools.diag, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title short-plot
+class: plot-slide
 
 ## CASchools: Bootstrap Coefficient Intervals
 
-```{r fig.width=9.2, fig.height=4.3}
-par(mar = c(5.1, 8.2, 4.1, 1.2))
+```{r fig.width=9.2, fig.height=5.2}
 schools.boot.plot <- subset(schools.boot, term != "(Intercept)")
 schools.boot.plot <- schools.boot.plot[nrow(schools.boot.plot):1, ]
 
@@ -1978,7 +1979,6 @@ segments(
 
 abline(v = 0, lty = "dashed", col = "gray50")
 axis(2, at = seq_len(nrow(schools.boot.plot)), labels = schools.boot.plot$term, las = 2)
-par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
 - These are empirical 95% intervals from `200` bootstrap resamples.
@@ -1986,7 +1986,8 @@ par(mar = c(5.1, 4.1, 4.1, 2.1))
   negative.
 - The intercept is omitted so the predictor intervals do not collapse
   visually toward `0`.
-- `lunch` and `income` remain the most stable effects.
+- `lunch` and `income` remain the most stable effects, while weaker
+  terms sit closer to `0` and deserve more caution.
 
 ---
 
@@ -2106,11 +2107,11 @@ kable(finance.stocks, row.names = FALSE)
 ```
 
 - All six stocks are NYSE-listed.
-- Industries are intentionally different to avoid choosing six similar
+- Industries are intentionally different to avoid choosing five similar
   firms.
 - Benchmark: `^GSPC` for the S&P 500.
 - The cross-sector mix gives the portfolio visibly different beta and
-  correlation behavior instead of six nearly identical names.
+  correlation behavior instead of five nearly identical names.
 
 ---
 
@@ -2147,24 +2148,33 @@ class: plot-slide
 ## Finance: Close Prices
 
 ```{r fig.width=9.5, fig.height=5.2}
-par(mfrow = c(2, 3))
+par(mfrow = c(3, 2))
 
-for (ticker in finance.stocks$Ticker) {
-  plot(
-    index(finance.close),
-    as.numeric(finance.close[, ticker]),
-    type = "l",
-    xlab = "Date",
-    ylab = "Close",
-    main = ticker
-  )
-}
+plot(index(finance.close), as.numeric(finance.close[, "JPM"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "JPM")
+
+plot(index(finance.close), as.numeric(finance.close[, "JNJ"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "JNJ")
+
+plot(index(finance.close), as.numeric(finance.close[, "XOM"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "XOM")
+
+plot(index(finance.close), as.numeric(finance.close[, "WMT"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "WMT")
+
+plot(index(finance.close), as.numeric(finance.close[, "CAT"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "CAT")
+
+plot(index(finance.close), as.numeric(finance.close[, "BA"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "BA")
+
+plot(index(finance.close), as.numeric(finance.close[, "SP500"]),
+     type = "l", xlab = "Date", ylab = "Close", main = "SP500")
 
 par(mfrow = c(1, 1))
 ```
 
-- Raw close prices mainly show different scales and market regimes for
-  the six selected stocks.
+- Raw close prices mainly show different scales and market regimes.
 - The next comparisons switch to returns because raw dollar levels are
   not directly comparable across stocks.
 
@@ -2233,7 +2243,7 @@ symbols(
   finance.compare$Corr_SP500,
   finance.compare$Annual_Return,
   circles = finance.compare$Annual_Risk,
-  inches = 0.18,
+  inches = 0.2,
   add = TRUE,
   bg = adjustcolor("#2a6f97", alpha.f = 0.25),
   fg = "#2a6f97"
@@ -2260,7 +2270,7 @@ text(
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## Finance: Linking Risk-Return and Market Correlation
 
@@ -2307,12 +2317,14 @@ text(corr.x, finance.compare$Annual_Return, labels = finance.compare$Ticker, pos
 
 - Dotted links connect each stock's annual return across the risk view
   and the market-correlation view.
-- A stock can be market-linked without having the most extreme risk
-  position, so correlation and volatility are related but not identical.
+- This makes it easier to compare whether a stock's return profile is
+  lining up more with risk or with broad-market linkage.
+- A stock can be very market-linked without having the most extreme risk
+  position, so correlation and volatility are related but not the same.
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## Finance: Correlation Heatmap
 
@@ -2343,10 +2355,12 @@ for (i in 1:nrow(finance.corr)) {
 par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-- Warmer colors mean stronger positive correlation; cooler colors mean
-  weaker market co-movement.
-- Diversification benefit depends on which names are combined, not just
-  how many names are held.
+- Warmer colors mean stronger positive correlation.
+- Cooler colors mean weaker market co-movement.
+- Correlation matters because diversification is weaker when all assets
+  move together.
+- The uneven color pattern shows that diversification benefit depends on
+  which names are combined, not just how many names are held.
 
 ---
 
@@ -2402,12 +2416,12 @@ kable(finance.capm.display, row.names = FALSE)
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## Finance: CAPM Fitted vs Actual Returns
 
 ```{r fig.width=9.5, fig.height=5.0}
-par(mfrow = c(2, 3), mar = c(4, 4.4, 3, 1))
+par(mfrow = c(2, 3), mar = c(4, 3.5, 3, 1))
 
 for (ticker in finance.stocks$Ticker) {
   model <- lm(finance.ret.mat[, ticker] ~ finance.ret.mat[, "SP500"])
@@ -2428,13 +2442,13 @@ for (ticker in finance.stocks$Ticker) {
 par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-- Higher R-squared stocks cluster more tightly around the diagonal.
-- Wider scatter shows stock-specific variation the market factor cannot
-  explain.
+- Stocks with higher R-squared cluster more tightly around the diagonal; lower R-squared stocks show wider scatter.
+- The spread in each panel is the stock-specific variation the CAPM market factor cannot explain.
+- This complements the R-squared column in the CAPM table by making the unexplained residual variation visible.
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## Finance: Rolling 60-Day Beta
 
@@ -2470,12 +2484,14 @@ par(mar = c(5.1, 4.1, 4.1, 2.1))
 
 - Beta above `1` means the stock moved more aggressively than the market
   in that 60-day window.
-- Rolling beta shows changing exposure that a single full-sample beta
-  would miss.
+- Beta blends co-movement with relative volatility, so a rising line can
+  mean tighter market linkage, larger stock swings, or both.
+- A single full-sample beta misses these shifts, so rolling beta is more
+  informative about changing exposure.
 
 ---
 
-class: plot-slide compact small-title
+class: plot-slide
 
 ## Finance: Rolling 60-Day Correlation
 
@@ -2509,10 +2525,13 @@ legend(
 par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-- Correlation isolates co-movement strength without the
+- Correlation isolates co-movement strength only, without the
   relative-volatility piece.
-- Comparing rolling beta and rolling correlation separates “moves with
-  the market” from “moves more violently than the market.”
+- Together, the rolling beta and rolling correlation plots show whether
+  a stock became more market-linked because it moved more in sync with
+  the S&P 500, because it got more volatile, or both.
+- Comparing the two rolling plots separates “moves with the market” from
+  “moves more violently than the market.”
 
 ---
 
