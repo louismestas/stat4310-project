@@ -1746,17 +1746,12 @@ kable(house.sensitivity.display, row.names = FALSE)
   that's a big deal. If it just improves accuracy, that's less serious.
 
 ```{r}
-# Held-out test table: evaluates the selected models on the untouched 20% test
-# set after all training-set decisions are made.
 kable(house.test.display, row.names = FALSE)
-# This prints the SECOND table on the slide.
-# This table is the "final exam" for our model.
-# We locked away 20% of the data at the very start and 
-# never let the model train on it.
-# Now we use it to test how well the model predicts 
-# house prices it has never seen before.
-# Think of it like: the model studied all year (training data),
-# now it's taking the actual exam (test data).
+# Show the performance on the TEST data.
+# The test set is the 20% of houses we set aside at the start and did NOT use for training.
+# This is like the final exam: it checks if our model can predict NEW houses it hasn't seen.
+# The RMSE here is: "On average, how far off are we on these unseen houses?"
+# If test RMSE is similar to validation RMSE, it suggests the model is not overfitted.
 ```
 
 - In the upper table, both RMSE columns are repeated-CV validation RMSE. RMSE = how far off our predictions are on average (lower = better)
