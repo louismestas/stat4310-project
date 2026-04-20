@@ -1272,21 +1272,47 @@ kable(house.compare.display, row.names = FALSE)
 ---
 
 class: small-table
+<!-- This just makes the table smaller so it fits nicely on the slide -->
 
 ## HousePrices: Sensitivity to Cook Filtering
 
+  - We want to know if a few "weird" house sales are ruining our model.
+  - Imagine if someone sold a mansion for $1 — that one sale could throw off predictions for every other house. 
+  - We use "Cook Filtering" to find and remove those kinds of sales, then check if it helped.
+
 ```{r}
 kable(house.sensitivity.display, row.names = FALSE)
+# This prints the FIRST table on the slide.
+# It compares two situations:
+#   1. Using ALL the training data (including weird sales)
+#   2. Using CLEANED training data (weird sales removed)
+# For each situation it shows:
+#   - Which model step AIC picked as best
+#   - Which model step CV picked as best
+#   - How big the prediction error (RMSE) was
+# Lower RMSE = better predictions = our model is more accurate
 ```
 
-- The upper table asks whether influential sales change model choice or
-  mostly change the size of the validation error.
+- The upper table asks whether influential sales change model choice or mostly change the size of the validation error.
+- We're asking two questions about those weird sales:
+    Question 1: Do they change WHICH model we end up choosing?
+    Question 2: Do they just make our predictions less accurate?
+  This matters because if removing them changes our whole model,
+  that's a big deal. If it just improves accuracy, that's less serious.
 
 ```{r}
 kable(house.test.display, row.names = FALSE)
+# This prints the SECOND table on the slide.
+# This table is the "final exam" for our model.
+# We locked away 20% of the data at the very start and 
+# never let the model train on it.
+# Now we use it to test how well the model predicts 
+# house prices it has never seen before.
+# Think of it like: the model studied all year (training data),
+# now it's taking the actual exam (test data).
 ```
 
-- In the upper table, both RMSE columns are repeated-CV validation RMSE.
+- In the upper table, both RMSE columns are repeated-CV validation RMSE. RMSE = how far off our predictions are on average (lower = better)
 - In the lower table, the RMSE is computed on the held-out 20% test set
   by comparing predictions to the actual observed response values.
 - When AIC and CV pick the same step, that test RMSE is shown once.
@@ -1296,6 +1322,7 @@ kable(house.test.display, row.names = FALSE)
 ---
 
 class: small-table plot-slide compact small-title
+
 
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
