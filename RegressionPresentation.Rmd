@@ -906,11 +906,11 @@ finance.stocks <- data.frame(
     "Financial Services",
     "Healthcare",
     "Energy",
-    "Retail and Wholesale",
+    "Retail & Wholesale",
     "Industrials",
     "Aerospace"
   )
-) # Changed to Retail and Wholesale"
+) # Changed to Retail & Wholesale"
 
 JPM.f <- getSymbols("JPM", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 JNJ.f <- getSymbols("JNJ", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
