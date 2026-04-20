@@ -1,0 +1,252 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap");
+
+:root {
+  --ink: #18222f;
+  --muted: #556170;
+  --paper: #fbf7ef;
+  --paper-alt: #f3ead7;
+  --panel: rgba(255, 252, 246, 0.88);
+  --navy: #16384f;
+  --teal: #0c6b63;
+  --gold: #d89b2b;
+  --rust: #b84d32;
+  --line: rgba(22, 56, 79, 0.16);
+}
+
+body {
+  font-family: "Manrope", "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: var(--paper);
+}
+
+.remark-slide-content {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(216, 155, 43, 0.12), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(12, 107, 99, 0.10), transparent 30%),
+    linear-gradient(180deg, #fdfaf3 0%, #f7f0e1 100%);
+  color: var(--ink);
+  font-family: "Manrope", "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 21px;
+  line-height: 1.36;
+  padding: 0.9em 2.15em 1.08em 2.15em;
+}
+
+.remark-slide-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: linear-gradient(90deg, var(--navy) 0%, var(--teal) 58%, var(--gold) 100%);
+}
+
+.remark-slide-content::after {
+  content: "";
+  position: absolute;
+  right: -70px;
+  bottom: -70px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: rgba(22, 56, 79, 0.05);
+}
+
+h1, h2, h3 {
+  color: var(--navy);
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-top: 0.18em;
+  margin-bottom: 0.45em;
+  line-height: 1.08;
+}
+
+h1 {
+  font-size: 1.66em;
+}
+
+h2 {
+  font-size: 1.28em;
+}
+
+h3 {
+  font-size: 1.08em;
+}
+
+p,
+li {
+  position: relative;
+  z-index: 1;
+}
+
+ul,
+ol {
+  padding-left: 1.1em;
+}
+
+li {
+  margin-bottom: 0.34em;
+}
+
+li::marker {
+  color: var(--rust);
+}
+
+a {
+  color: var(--teal);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
+}
+
+.inverse {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(135deg, #0f2434 0%, #18465a 48%, #247066 78%, #d89b2b 100%);
+  color: #ffffff;
+}
+
+.inverse::before {
+  background: linear-gradient(90deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 100%);
+}
+
+.inverse::after {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.inverse h1,
+.inverse h2,
+.inverse h3,
+.inverse a {
+  color: #ffffff;
+}
+
+.accent {
+  color: #ffd27a;
+  font-weight: 700;
+}
+
+.remark-slide-number {
+  color: var(--muted);
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.small-table table {
+  font-size: 0.72em;
+}
+
+.tiny-table table {
+  font-size: 0.6em;
+}
+
+table {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 0.45em;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(22, 56, 79, 0.08);
+}
+
+th {
+  background: linear-gradient(90deg, var(--navy) 0%, #23536f 100%);
+  color: #ffffff;
+  padding: 10px 12px;
+  border: 0;
+}
+
+td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(22, 56, 79, 0.10);
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+.compact ul,
+.compact ol {
+  margin-top: 0.15em;
+}
+
+.compact li {
+  margin-bottom: 0.2em;
+}
+
+.small-title h1 {
+  font-size: 1.52em;
+}
+
+.small-title h2 {
+  font-size: 1.14em;
+  margin-bottom: 0.3em;
+}
+
+.plot-slide img {
+  display: block;
+  margin: 0.2em auto 0 auto;
+  max-width: 100%;
+  max-height: 392px;
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(22, 56, 79, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 8px;
+}
+
+.compact.plot-slide li {
+  font-size: 0.9em;
+  margin-bottom: 0.14em;
+}
+
+.diagnostic-slide img {
+  max-height: 330px;
+}
+
+.diagnostic-slide table {
+  font-size: 0.58em;
+  margin-top: 0.25em;
+}
+
+.diagnostic-slide th,
+.diagnostic-slide td {
+  padding: 6px 10px;
+}
+
+.short-plot img {
+  max-height: 350px;
+}
+
+.caption {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.remark-inline-code {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  background: rgba(12, 107, 99, 0.10);
+  border-radius: 6px;
+  padding: 0.1em 0.3em;
+}
+
+.remark-code,
+.remark-code-line {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.remark-code {
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(22, 56, 79, 0.12);
+}
+
+.pull-left,
+.pull-right {
+  position: relative;
+  z-index: 1;
+}

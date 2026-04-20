@@ -1,0 +1,1229 @@
+- generic [ref=e2]:
+  - generic [ref=e6]:
+    - heading "STAT 4310 Regression Project" [level=1] [ref=e8]
+    - heading "Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda" [level=3] [ref=e10]
+    - heading "2026-04-19" [level=3] [ref=e12]
+    - generic [ref=e13]: 1 / 51
+  - generic [ref=e17]:
+    - heading "STAT 4310 Regression Project" [level=1] [ref=e18]
+    - 'heading "Part I: Two Regression Datasets" [level=2] [ref=e19]'
+    - 'heading "Part II: Finance Application" [level=2] [ref=e20]'
+    - paragraph [ref=e21]: HousePrices, CASchools, and a 6-stock NYSE portfolio
+    - generic [ref=e22]: 2 / 51
+  - generic [ref=e26]:
+    - heading "Roadmap" [level=2] [ref=e27]
+    - list [ref=e28]:
+      - listitem [ref=e29]: Part I uses two medium-sized datasets with optimal-model workflows.
+      - listitem [ref=e30]: Part II uses six NYSE stocks from different industries plus the S&P 500 benchmark.
+      - listitem [ref=e31]: Every section shows methods, interim process steps, diagnostics, extra validation, and final interpretation.
+    - generic [ref=e32]: 3 / 51
+  - generic [ref=e36]:
+    - 'heading "Part I: Regression Methods" [level=2] [ref=e37]'
+    - table [ref=e38]:
+      - rowgroup [ref=e39]:
+        - row "Step Method" [ref=e40]:
+          - columnheader "Step" [ref=e41]
+          - columnheader "Method" [ref=e42]
+      - rowgroup [ref=e43]:
+        - row "1. Describe data response, predictors, missingness" [ref=e44]:
+          - cell "1. Describe data" [ref=e45]
+          - cell "response, predictors, missingness" [ref=e46]
+        - row "2. Split Train/Test 80% / 20%" [ref=e47]:
+          - cell "2. Split Train/Test" [ref=e48]
+          - cell "80% / 20%" [ref=e49]
+        - row "3. Build full model lm()" [ref=e50]:
+          - cell "3. Build full model" [ref=e51]
+          - cell "lm()" [ref=e52]
+        - row "4. Build CV ladder nested backward models + repeated CV" [ref=e53]:
+          - cell "4. Build CV ladder" [ref=e54]
+          - cell "nested backward models + repeated CV" [ref=e55]
+        - row "5. Compare AIC vs CV AIC-optimal vs CV-optimal" [ref=e56]:
+          - cell "5. Compare AIC vs CV" [ref=e57]
+          - cell "AIC-optimal vs CV-optimal" [ref=e58]
+        - row "6. Remove outliers Cook's distance" [ref=e59]:
+          - cell "6. Remove outliers" [ref=e60]
+          - cell "Cook's distance" [ref=e61]
+        - row "7. Check sensitivity before vs after Cook filtering" [ref=e62]:
+          - cell "7. Check sensitivity" [ref=e63]
+          - cell "before vs after Cook filtering" [ref=e64]
+        - row "8. Check residuals QQ, BP, and DW tests" [ref=e65]:
+          - cell "8. Check residuals" [ref=e66]
+          - cell "QQ, BP, and DW tests" [ref=e67]
+        - row "9. Bootstrap intervals bootstrap coefficient CIs" [ref=e68]:
+          - cell "9. Bootstrap intervals" [ref=e69]
+          - cell "bootstrap coefficient CIs" [ref=e70]
+        - row "10. Predict new cases confidence and prediction intervals" [ref=e71]:
+          - cell "10. Predict new cases" [ref=e72]
+          - cell "confidence and prediction intervals" [ref=e73]
+    - generic [ref=e74]: 4 / 51
+  - generic [ref=e78]:
+    - 'heading "HousePrices: Dataset Snapshot" [level=2] [ref=e79]'
+    - list [ref=e81]:
+      - listitem [ref=e82]:
+        - code [ref=e83]: "546"
+        - text: observations and
+        - code [ref=e84]: "12"
+        - text: variables
+      - listitem [ref=e85]:
+        - text: "Response:"
+        - code [ref=e86]: price
+      - listitem [ref=e87]:
+        - code [ref=e88]: lotsize
+        - text: ": lot size of the house"
+      - listitem [ref=e89]:
+        - code [ref=e90]: bedrooms
+        - text: ","
+        - code [ref=e91]: bathrooms
+        - text: ","
+        - code [ref=e92]: stories
+        - text: ","
+        - code [ref=e93]: garage
+        - text: ": size/layout features"
+      - listitem [ref=e94]:
+        - code [ref=e95]: driveway
+        - text: ","
+        - code [ref=e96]: recreation
+        - text: ","
+        - code [ref=e97]: fullbase
+        - text: ","
+        - code [ref=e98]: gasheat
+        - text: ","
+        - code [ref=e99]: aircon
+        - text: ","
+        - code [ref=e100]: prefer
+        - text: ": yes/no housing amenities or location preference indicators"
+      - listitem [ref=e101]:
+        - text: "Missing values:"
+        - code [ref=e102]: "0"
+      - listitem [ref=e103]: The mix of structural and amenity variables makes the dataset useful for both interpretation and prediction.
+    - table [ref=e105]:
+      - rowgroup [ref=e106]:
+        - row "Item Value" [ref=e107]:
+          - columnheader "Item" [ref=e108]
+          - columnheader "Value" [ref=e109]
+      - rowgroup [ref=e110]:
+        - row "Rows 546" [ref=e111]:
+          - cell "Rows" [ref=e112]
+          - cell "546" [ref=e113]
+        - row "Columns 12" [ref=e114]:
+          - cell "Columns" [ref=e115]
+          - cell "12" [ref=e116]
+        - row "Missing 0" [ref=e117]:
+          - cell "Missing" [ref=e118]
+          - cell "0" [ref=e119]
+    - generic [ref=e120]: 5 / 51
+  - generic [ref=e124]:
+    - 'heading "HousePrices: Exploratory Overview" [level=2] [ref=e125]'
+    - paragraph [ref=e126]:
+      - img [ref=e127]
+    - list [ref=e128]:
+      - listitem [ref=e129]: "Price is right-skewed: most homes are modestly priced with a long tail of high-value sales."
+      - listitem [ref=e130]: Lot size and price have a positive association, but with wide spread showing other features matter too.
+      - listitem [ref=e131]: Bedroom count alone is a weak predictor — amenity combinations are more informative.
+    - generic [ref=e132]: 6 / 51
+  - generic [ref=e136]:
+    - 'heading "HousePrices: Interim Process" [level=2] [ref=e137]'
+    - table [ref=e138]:
+      - rowgroup [ref=e139]:
+        - row "Step Detail" [ref=e140]:
+          - columnheader "Step" [ref=e141]
+          - columnheader "Detail" [ref=e142]
+      - rowgroup [ref=e143]:
+        - row "Split data 448 train / 98 test" [ref=e144]:
+          - cell "Split data" [ref=e145]
+          - cell "448 train / 98 test" [ref=e146]
+        - row "Build full model 11 starting predictors" [ref=e147]:
+          - cell "Build full model" [ref=e148]
+          - cell "11 starting predictors" [ref=e149]
+        - row "Build model ladder 11 nested steps" [ref=e150]:
+          - cell "Build model ladder" [ref=e151]
+          - cell "11 nested steps" [ref=e152]
+        - row "Run repeated CV 5 folds x 6 repeats" [ref=e153]:
+          - cell "Run repeated CV" [ref=e154]
+          - cell "5 folds x 6 repeats" [ref=e155]
+        - row "Compare AIC and CV Step 0 vs Step 1" [ref=e156]:
+          - cell "Compare AIC and CV" [ref=e157]
+          - cell "Step 0 vs Step 1" [ref=e158]
+        - row "Remove outliers 36 points above Cook cutoff" [ref=e159]:
+          - cell "Remove outliers" [ref=e160]
+          - cell "36 points above Cook cutoff" [ref=e161]
+        - row "Check residuals QQ, BP, and DW tests" [ref=e162]:
+          - cell "Check residuals" [ref=e163]
+          - cell "QQ, BP, and DW tests" [ref=e164]
+        - row "Bootstrap intervals 200 bootstrap resamples" [ref=e165]:
+          - cell "Bootstrap intervals" [ref=e166]
+          - cell "200 bootstrap resamples" [ref=e167]
+        - row "Predict new homes 2 cases with CI and PI" [ref=e168]:
+          - cell "Predict new homes" [ref=e169]
+          - cell "2 cases with CI and PI" [ref=e170]
+    - list [ref=e171]:
+      - listitem [ref=e172]: "The ordering matters: choose the model on training data, check influential cases, then touch the held-out test set only once."
+    - generic [ref=e173]: 7 / 51
+  - generic [ref=e177]:
+    - 'heading "HousePrices: CV Across the Selection Ladder" [level=2] [ref=e178]'
+    - paragraph [ref=e179]:
+      - img [ref=e180]
+    - list [ref=e181]:
+      - listitem [ref=e182]:
+        - code [ref=e183]: S0
+        - text: is the full model, and each later step removes one more predictor.
+      - listitem [ref=e184]:
+        - text: Each step shows
+        - code [ref=e185]: "30"
+        - text: validation RMSE values from
+        - code [ref=e186]: "5"
+        - text: folds repeated
+        - code [ref=e187]: "6"
+        - text: times.
+      - listitem [ref=e188]:
+        - text: The green point marks the CV minimum at
+        - code [ref=e189]: S1
+        - text: ; extra trimming starts to give up signal.
+    - generic [ref=e190]: 8 / 51
+  - generic [ref=e194]:
+    - 'heading "HousePrices: AIC Step vs CV Step" [level=2] [ref=e195]'
+    - table [ref=e196]:
+      - rowgroup [ref=e197]:
+        - row "Model Best Step Predictors CV RMSE" [ref=e198]:
+          - columnheader "Model" [ref=e199]
+          - columnheader "Best Step" [ref=e200]
+          - columnheader "Predictors" [ref=e201]
+          - columnheader "CV RMSE" [ref=e202]
+      - rowgroup [ref=e203]:
+        - row "AIC-optimal Step 0 11 15800.09" [ref=e204]:
+          - cell "AIC-optimal" [ref=e205]
+          - cell "Step 0" [ref=e206]
+          - cell "11" [ref=e207]
+          - cell "15800.09" [ref=e208]
+        - row "CV-optimal Step 1 10 15773.42" [ref=e209]:
+          - cell "CV-optimal" [ref=e210]
+          - cell "Step 1" [ref=e211]
+          - cell "10" [ref=e212]
+          - cell "15773.42" [ref=e213]
+    - list [ref=e214]:
+      - listitem [ref=e215]: AIC and CV are compared on the same training-set ladder.
+      - listitem [ref=e216]: The held-out 20% test set is used only for the final check.
+      - listitem [ref=e217]:
+        - text: For
+        - code [ref=e218]: HousePrices
+        - text: ", the CV gap is only 26.66, so the test flip of 234.64 is normal one-split noise rather than a contradiction."
+      - listitem [ref=e219]: In practice, both criteria are pointing to nearly the same part of the ladder rather than arguing for very different housing models.
+    - generic [ref=e220]: 9 / 51
+  - generic [ref=e224]:
+    - 'heading "HousePrices: Sensitivity to Cook Filtering" [level=2] [ref=e225]'
+    - table [ref=e226]:
+      - rowgroup [ref=e227]:
+        - row "Training Data Used AIC Best Step AIC RMSE CV Best Step CV RMSE" [ref=e228]:
+          - columnheader "Training Data Used" [ref=e229]
+          - columnheader "AIC Best Step" [ref=e230]
+          - columnheader "AIC RMSE" [ref=e231]
+          - columnheader "CV Best Step" [ref=e232]
+          - columnheader "CV RMSE" [ref=e233]
+      - rowgroup [ref=e234]:
+        - row "Original training data Step 0 15800.09 Step 1 15773.42" [ref=e235]:
+          - cell "Original training data" [ref=e236]
+          - cell "Step 0" [ref=e237]
+          - cell "15800.09" [ref=e238]
+          - cell "Step 1" [ref=e239]
+          - cell "15773.42" [ref=e240]
+        - row "Cook-filtered training data Step 1 11525.72 Step 1 11525.72" [ref=e241]:
+          - cell "Cook-filtered training data" [ref=e242]
+          - cell "Step 1" [ref=e243]
+          - cell "11525.72" [ref=e244]
+          - cell "Step 1" [ref=e245]
+          - cell "11525.72" [ref=e246]
+    - list [ref=e247]:
+      - listitem [ref=e248]: The upper table asks whether influential sales change model choice or mostly change the size of the validation error.
+    - table [ref=e249]:
+      - rowgroup [ref=e250]:
+        - row "Training Data Used AIC Best Step CV Best Step Held-out Test RMSE" [ref=e251]:
+          - columnheader "Training Data Used" [ref=e252]
+          - columnheader "AIC Best Step" [ref=e253]
+          - columnheader "CV Best Step" [ref=e254]
+          - columnheader "Held-out Test RMSE" [ref=e255]
+      - rowgroup [ref=e256]:
+        - row "Original training data Step 0 Step 1 AIC 15361.11, CV 15595.75" [ref=e257]:
+          - cell "Original training data" [ref=e258]
+          - cell "Step 0" [ref=e259]
+          - cell "Step 1" [ref=e260]
+          - cell "AIC 15361.11, CV 15595.75" [ref=e261]
+        - row "Cook-filtered training data Step 1 Step 1 15195.88 (same for AIC and CV)" [ref=e262]:
+          - cell "Cook-filtered training data" [ref=e263]
+          - cell "Step 1" [ref=e264]
+          - cell "Step 1" [ref=e265]
+          - cell "15195.88 (same for AIC and CV)" [ref=e266]
+    - list [ref=e267]:
+      - listitem [ref=e268]: In the upper table, both RMSE columns are repeated-CV validation RMSE.
+      - listitem [ref=e269]: In the lower table, the RMSE is computed on the held-out 20% test set by comparing predictions to the actual observed response values.
+      - listitem [ref=e270]: When AIC and CV pick the same step, that test RMSE is shown once.
+      - listitem [ref=e271]: After Cook filtering, the validation error drops without changing the overall selection story.
+    - generic [ref=e272]: 10 / 51
+  - generic [ref=e276]:
+    - 'heading "HousePrices: CV Ladder Before and After Cook Filtering" [level=2] [ref=e277]'
+    - paragraph [ref=e278]:
+      - img [ref=e279]
+    - list [ref=e280]:
+      - listitem [ref=e281]: The whole ladder shifts down after filtering, so influential cases were hurting validation performance across multiple candidate models.
+      - listitem [ref=e282]: Cook filtering improves model stability rather than rescuing one lucky final step.
+    - generic [ref=e283]: 11 / 51
+  - generic [ref=e287]:
+    - 'heading "HousePrices: Final Model Summary" [level=2] [ref=e288]'
+    - list [ref=e289]:
+      - listitem [ref=e290]: "Final predictors kept:"
+    - paragraph [ref=e291]: lotsize, bedrooms, bathrooms, stories, driveway, recreation, fullbase, gasheat, aircon, garage, prefer
+    - list [ref=e292]:
+      - listitem [ref=e293]: "Removed from full model:"
+    - paragraph [ref=e294]: None from the full model
+    - list [ref=e295]:
+      - listitem [ref=e296]: The final model keeps the variables that most directly describe usable house characteristics and preferred location.
+      - listitem [ref=e297]: Because no term drops from the full model, the main housing features appear to add complementary signal rather than redundant overlap.
+    - table [ref=e298]:
+      - rowgroup [ref=e299]:
+        - row "Metric Value" [ref=e300]:
+          - columnheader "Metric" [ref=e301]
+          - columnheader "Value" [ref=e302]
+      - rowgroup [ref=e303]:
+        - row "Adjusted R2 0.7418" [ref=e304]:
+          - cell "Adjusted R2" [ref=e305]
+          - cell "0.7418" [ref=e306]
+        - row "Residual s 11281.6100" [ref=e307]:
+          - cell "Residual s" [ref=e308]
+          - cell "11281.6100" [ref=e309]
+        - row "Outliers Removed 36.0000" [ref=e310]:
+          - cell "Outliers Removed" [ref=e311]
+          - cell "36.0000" [ref=e312]
+        - row "Test RMSE 15290.8400" [ref=e313]:
+          - cell "Test RMSE" [ref=e314]
+          - cell "15290.8400" [ref=e315]
+        - row "Test R2 0.6612" [ref=e316]:
+          - cell "Test R2" [ref=e317]
+          - cell "0.6612" [ref=e318]
+    - generic [ref=e319]: 12 / 51
+  - generic [ref=e323]:
+    - 'heading "HousePrices: Final Model Terms" [level=2] [ref=e324]'
+    - table [ref=e325]:
+      - rowgroup [ref=e326]:
+        - row "Term Estimate P Value" [ref=e327]:
+          - columnheader "Term" [ref=e328]
+          - columnheader "Estimate" [ref=e329]
+          - columnheader "P Value" [ref=e330]
+      - rowgroup [ref=e331]:
+        - row "lotsize 3.7246 < 1e-16" [ref=e332]:
+          - cell "lotsize" [ref=e333]
+          - cell "3.7246" [ref=e334]
+          - cell "< 1e-16" [ref=e335]
+        - row "stories 7513.8128 < 1e-16" [ref=e336]:
+          - cell "stories" [ref=e337]
+          - cell "7513.8128" [ref=e338]
+          - cell "< 1e-16" [ref=e339]
+        - row "bathrooms 11862.8341 1.10e-16" [ref=e340]:
+          - cell "bathrooms" [ref=e341]
+          - cell "11862.8341" [ref=e342]
+          - cell "1.10e-16" [ref=e343]
+        - row "airconyes 11024.1191 1.58e-15" [ref=e344]:
+          - cell "airconyes" [ref=e345]
+          - cell "11024.1191" [ref=e346]
+          - cell "1.58e-15" [ref=e347]
+        - row "preferyes 8693.1604 5.30e-09" [ref=e348]:
+          - cell "preferyes" [ref=e349]
+          - cell "8693.1604" [ref=e350]
+          - cell "5.30e-09" [ref=e351]
+        - row "garage 2990.4355 5.96e-05" [ref=e352]:
+          - cell "garage" [ref=e353]
+          - cell "2990.4355" [ref=e354]
+          - cell "5.96e-05" [ref=e355]
+        - row "fullbaseyes 5195.2531 0.000154" [ref=e356]:
+          - cell "fullbaseyes" [ref=e357]
+          - cell "5195.2531" [ref=e358]
+          - cell "0.000154" [ref=e359]
+        - row "gasheatyes 11673.0625 0.000359" [ref=e360]:
+          - cell "gasheatyes" [ref=e361]
+          - cell "11673.0625" [ref=e362]
+          - cell "0.000359" [ref=e363]
+        - row "drivewayyes 5494.4737 0.001009" [ref=e364]:
+          - cell "drivewayyes" [ref=e365]
+          - cell "5494.4737" [ref=e366]
+          - cell "0.001009" [ref=e367]
+        - row "recreationyes 2702.0028 0.097389" [ref=e368]:
+          - cell "recreationyes" [ref=e369]
+          - cell "2702.0028" [ref=e370]
+          - cell "0.097389" [ref=e371]
+        - row "bedrooms 1115.7889 0.213757" [ref=e372]:
+          - cell "bedrooms" [ref=e373]
+          - cell "1115.7889" [ref=e374]
+          - cell "0.213757" [ref=e375]
+    - list [ref=e376]:
+      - listitem [ref=e377]: Larger lots, more stories and bathrooms, air conditioning, a garage, and preferred location all move fitted price upward when the other features are held fixed.
+      - listitem [ref=e378]: The coefficient table shows that the strongest evidence sits in structural and amenity terms rather than in one single dominant feature.
+    - generic [ref=e379]: 13 / 51
+  - generic [ref=e383]:
+    - 'heading "HousePrices: Diagnostics" [level=2] [ref=e384]'
+    - paragraph [ref=e385]:
+      - img [ref=e386]
+    - table [ref=e387]:
+      - rowgroup [ref=e388]:
+        - row "Test P.Value" [ref=e389]:
+          - columnheader "Test" [ref=e390]
+          - columnheader "P.Value" [ref=e391]
+      - rowgroup [ref=e392]:
+        - row "Shapiro-Wilk 0.021159" [ref=e393]:
+          - cell "Shapiro-Wilk" [ref=e394]
+          - cell "0.021159" [ref=e395]
+        - row "Breusch-Pagan 0.009426" [ref=e396]:
+          - cell "Breusch-Pagan" [ref=e397]
+          - cell "0.009426" [ref=e398]
+        - row "Durbin-Watson 0.000158" [ref=e399]:
+          - cell "Durbin-Watson" [ref=e400]
+          - cell "0.000158" [ref=e401]
+    - list [ref=e402]:
+      - listitem [ref=e403]: The residual checks do not show a single breakdown large enough to undermine the model for the main inference and prediction goals here.
+    - generic [ref=e404]: 14 / 51
+  - generic [ref=e408]:
+    - 'heading "HousePrices: Bootstrap Coefficient Intervals" [level=2] [ref=e409]'
+    - paragraph [ref=e410]:
+      - img [ref=e411]
+    - list [ref=e412]:
+      - listitem [ref=e413]:
+        - text: These are empirical 95% intervals from
+        - code [ref=e414]: "200"
+        - text: bootstrap resamples of the final training set.
+      - listitem [ref=e415]:
+        - text: Intervals far from
+        - code [ref=e416]: "0"
+        - text: support stable coefficient direction.
+      - listitem [ref=e417]: The intercept is omitted because its much larger scale would compress the predictor effects.
+    - generic [ref=e418]: 15 / 51
+  - generic [ref=e422]:
+    - 'heading "HousePrices: Prediction Examples" [level=2] [ref=e423]'
+    - table [ref=e424]:
+      - rowgroup [ref=e425]:
+        - row "Scenario Fit CI PI" [ref=e426]:
+          - columnheader "Scenario" [ref=e427]
+          - columnheader "Fit" [ref=e428]
+          - columnheader "CI" [ref=e429]
+          - columnheader "PI" [ref=e430]
+      - rowgroup [ref=e431]:
+        - row "Smaller home 47871 (45465, 50277) (25562, 70180)" [ref=e432]:
+          - cell "Smaller home" [ref=e433]
+          - cell "47871" [ref=e434]
+          - cell "(45465, 50277)" [ref=e435]
+          - cell "(25562, 70180)" [ref=e436]
+        - row "Larger home 124806 (117441, 132170) (101436, 148175)" [ref=e437]:
+          - cell "Larger home" [ref=e438]
+          - cell "124806" [ref=e439]
+          - cell "(117441, 132170)" [ref=e440]
+          - cell "(101436, 148175)" [ref=e441]
+    - list [ref=e442]:
+      - listitem [ref=e443]: The confidence interval estimates the mean price.
+      - listitem [ref=e444]: The prediction interval is wider because it predicts an individual home sale.
+      - listitem [ref=e445]: The higher-amenity scenario also gets the higher fitted price, which matches the coefficient signs in the final model.
+    - generic [ref=e446]: 16 / 51
+  - generic [ref=e450]:
+    - 'heading "HousePrices: CI and PI Overlay" [level=2] [ref=e451]'
+    - paragraph [ref=e452]:
+      - img [ref=e453]
+    - list [ref=e454]:
+      - listitem [ref=e455]: Gray points are actual prices, sorted by fitted mean response on the x-axis.
+      - listitem [ref=e456]: The green line is the fitted mean; orange bands show prediction intervals for observed-data rows.
+      - listitem [ref=e457]: Red triangles and bars sit at their fitted locations on the green line.
+      - listitem [ref=e458]: The wider orange bands show that individual-home prediction is much harder than estimating the mean response.
+    - generic [ref=e459]: 17 / 51
+  - generic [ref=e463]:
+    - 'heading "HousePrices: Predicted vs Actual (Test Set)" [level=2] [ref=e464]'
+    - paragraph [ref=e465]:
+      - img [ref=e466]
+    - list [ref=e467]:
+      - listitem [ref=e468]: Points close to the dashed line indicate accurate test-set predictions.
+      - listitem [ref=e469]: Deviations are largest at high price values, showing more uncertainty for expensive homes.
+      - listitem [ref=e470]: The overall scatter is consistent with the test RMSE reported in the final model summary.
+    - generic [ref=e471]: 18 / 51
+  - generic [ref=e475]:
+    - 'heading "CASchools: Dataset Snapshot" [level=2] [ref=e476]'
+    - list [ref=e478]:
+      - listitem [ref=e479]:
+        - code [ref=e480]: "420"
+        - text: observations and
+        - code [ref=e481]: "9"
+        - text: analysis variables
+      - listitem [ref=e482]:
+        - text: "Response: average test score"
+        - code [ref=e483]: score
+      - listitem [ref=e484]:
+        - code [ref=e485]: str
+        - text: ": students per teacher"
+      - listitem [ref=e486]:
+        - code [ref=e487]: calworks
+        - text: ": percent of students on CalWORKs"
+      - listitem [ref=e488]:
+        - code [ref=e489]: lunch
+        - text: ": percent eligible for subsidized lunch"
+      - listitem [ref=e490]:
+        - code [ref=e491]: income
+        - text: ": district income level"
+      - listitem [ref=e492]:
+        - code [ref=e493]: english
+        - text: ": percent of English learners"
+      - listitem [ref=e494]:
+        - code [ref=e495]: grades
+        - text: ": district grade-span category; one fitted indicator is"
+        - code [ref=e496]: gradesKK-08
+        - text: for K-8 districts
+      - listitem [ref=e497]:
+        - text: "Missing values:"
+        - code [ref=e498]: "0"
+      - listitem [ref=e499]: The covariates mix school resources with student-composition measures, so the model is mainly explanatory rather than causal.
+    - table [ref=e501]:
+      - rowgroup [ref=e502]:
+        - row "Item Value" [ref=e503]:
+          - columnheader "Item" [ref=e504]
+          - columnheader "Value" [ref=e505]
+      - rowgroup [ref=e506]:
+        - row "Rows 420" [ref=e507]:
+          - cell "Rows" [ref=e508]
+          - cell "420" [ref=e509]
+        - row "Columns 9" [ref=e510]:
+          - cell "Columns" [ref=e511]
+          - cell "9" [ref=e512]
+        - row "Missing 0" [ref=e513]:
+          - cell "Missing" [ref=e514]
+          - cell "0" [ref=e515]
+    - generic [ref=e516]: 19 / 51
+  - generic [ref=e520]:
+    - 'heading "CASchools: Exploratory Overview" [level=2] [ref=e521]'
+    - paragraph [ref=e522]:
+      - img [ref=e523]
+    - list [ref=e524]:
+      - listitem [ref=e525]: Score is roughly symmetric and bell-shaped across districts.
+      - listitem [ref=e526]: The negative relationship with lunch rate is the strongest raw signal in the data.
+      - listitem [ref=e527]: Income shows a clear positive association, confirming that socioeconomic factors dominate the score pattern.
+    - generic [ref=e528]: 20 / 51
+  - generic [ref=e532]:
+    - 'heading "CASchools: Interim Process" [level=2] [ref=e533]'
+    - table [ref=e534]:
+      - rowgroup [ref=e535]:
+        - row "Step Detail" [ref=e536]:
+          - columnheader "Step" [ref=e537]
+          - columnheader "Detail" [ref=e538]
+      - rowgroup [ref=e539]:
+        - row "Split data 326 train / 94 test" [ref=e540]:
+          - cell "Split data" [ref=e541]
+          - cell "326 train / 94 test" [ref=e542]
+        - row "Build full model 8 starting predictors" [ref=e543]:
+          - cell "Build full model" [ref=e544]
+          - cell "8 starting predictors" [ref=e545]
+        - row "Build model ladder 8 nested steps" [ref=e546]:
+          - cell "Build model ladder" [ref=e547]
+          - cell "8 nested steps" [ref=e548]
+        - row "Run repeated CV 5 folds x 6 repeats" [ref=e549]:
+          - cell "Run repeated CV" [ref=e550]
+          - cell "5 folds x 6 repeats" [ref=e551]
+        - row "Compare AIC and CV Step 3 vs Step 3" [ref=e552]:
+          - cell "Compare AIC and CV" [ref=e553]
+          - cell "Step 3 vs Step 3" [ref=e554]
+        - row "Remove outliers 18 points above Cook cutoff" [ref=e555]:
+          - cell "Remove outliers" [ref=e556]
+          - cell "18 points above Cook cutoff" [ref=e557]
+        - row "Check residuals QQ, BP, and DW tests" [ref=e558]:
+          - cell "Check residuals" [ref=e559]
+          - cell "QQ, BP, and DW tests" [ref=e560]
+        - row "Bootstrap intervals 200 bootstrap resamples" [ref=e561]:
+          - cell "Bootstrap intervals" [ref=e562]
+          - cell "200 bootstrap resamples" [ref=e563]
+        - row "Predict districts 2 cases with CI and PI" [ref=e564]:
+          - cell "Predict districts" [ref=e565]
+          - cell "2 cases with CI and PI" [ref=e566]
+    - list [ref=e567]:
+      - listitem [ref=e568]: The main question is whether school-score variation is driven more by student composition than by resource variables.
+    - generic [ref=e569]: 21 / 51
+  - generic [ref=e573]:
+    - 'heading "CASchools: CV Across the Selection Ladder" [level=2] [ref=e574]'
+    - paragraph [ref=e575]:
+      - img [ref=e576]
+    - list [ref=e577]:
+      - listitem [ref=e578]: The ladder is built from the training-set full model.
+      - listitem [ref=e579]:
+        - text: Each step summarizes
+        - code [ref=e580]: "30"
+        - text: validation RMSE values from
+        - code [ref=e581]: "5"
+        - text: folds repeated
+        - code [ref=e582]: "6"
+        - text: times.
+      - listitem [ref=e583]: AIC and CV agree here, which makes the reduced school model more defensible before touching the test set.
+    - generic [ref=e584]: 22 / 51
+  - generic [ref=e588]:
+    - 'heading "CASchools: AIC Step vs CV Step" [level=2] [ref=e589]'
+    - table [ref=e590]:
+      - rowgroup [ref=e591]:
+        - row "Model Best Step Predictors CV RMSE" [ref=e592]:
+          - columnheader "Model" [ref=e593]
+          - columnheader "Best Step" [ref=e594]
+          - columnheader "Predictors" [ref=e595]
+          - columnheader "CV RMSE" [ref=e596]
+      - rowgroup [ref=e597]:
+        - row "AIC-optimal Step 3 5 8.3683" [ref=e598]:
+          - cell "AIC-optimal" [ref=e599]
+          - cell "Step 3" [ref=e600]
+          - cell "5" [ref=e601]
+          - cell "8.3683" [ref=e602]
+        - row "CV-optimal Step 3 5 8.3683" [ref=e603]:
+          - cell "CV-optimal" [ref=e604]
+          - cell "Step 3" [ref=e605]
+          - cell "5" [ref=e606]
+          - cell "8.3683" [ref=e607]
+    - list [ref=e608]:
+      - listitem [ref=e609]: The agreement here says the AIC-selected reduction is not just an artifact of one criterion.
+    - generic [ref=e610]: 23 / 51
+  - generic [ref=e614]:
+    - 'heading "CASchools: Sensitivity to Cook Filtering" [level=2] [ref=e615]'
+    - table [ref=e616]:
+      - rowgroup [ref=e617]:
+        - row "Training Data Used AIC Best Step AIC RMSE CV Best Step CV RMSE" [ref=e618]:
+          - columnheader "Training Data Used" [ref=e619]
+          - columnheader "AIC Best Step" [ref=e620]
+          - columnheader "AIC RMSE" [ref=e621]
+          - columnheader "CV Best Step" [ref=e622]
+          - columnheader "CV RMSE" [ref=e623]
+      - rowgroup [ref=e624]:
+        - row "Original training data Step 3 8.37 Step 3 8.37" [ref=e625]:
+          - cell "Original training data" [ref=e626]
+          - cell "Step 3" [ref=e627]
+          - cell "8.37" [ref=e628]
+          - cell "Step 3" [ref=e629]
+          - cell "8.37" [ref=e630]
+        - row "Cook-filtered training data Step 3 7.09 Step 3 7.09" [ref=e631]:
+          - cell "Cook-filtered training data" [ref=e632]
+          - cell "Step 3" [ref=e633]
+          - cell "7.09" [ref=e634]
+          - cell "Step 3" [ref=e635]
+          - cell "7.09" [ref=e636]
+    - list [ref=e637]:
+      - listitem [ref=e638]: The main question is whether influential districts materially change the selected CV step or the full validation curve.
+    - table [ref=e639]:
+      - rowgroup [ref=e640]:
+        - row "Training Data Used AIC Best Step CV Best Step Held-out Test RMSE" [ref=e641]:
+          - columnheader "Training Data Used" [ref=e642]
+          - columnheader "AIC Best Step" [ref=e643]
+          - columnheader "CV Best Step" [ref=e644]
+          - columnheader "Held-out Test RMSE" [ref=e645]
+      - rowgroup [ref=e646]:
+        - row "Original training data Step 3 Step 3 8.54 (same for AIC and CV)" [ref=e647]:
+          - cell "Original training data" [ref=e648]
+          - cell "Step 3" [ref=e649]
+          - cell "Step 3" [ref=e650]
+          - cell "8.54 (same for AIC and CV)" [ref=e651]
+        - row "Cook-filtered training data Step 3 Step 3 8.68 (same for AIC and CV)" [ref=e652]:
+          - cell "Cook-filtered training data" [ref=e653]
+          - cell "Step 3" [ref=e654]
+          - cell "Step 3" [ref=e655]
+          - cell "8.68 (same for AIC and CV)" [ref=e656]
+    - list [ref=e657]:
+      - listitem [ref=e658]: In the upper table, both RMSE columns are repeated-CV validation RMSE.
+      - listitem [ref=e659]: In the lower table, the RMSE is computed on the held-out 20% test set by comparing predictions to the actual observed response values.
+      - listitem [ref=e660]: When AIC and CV pick the same step, that test RMSE is shown once.
+      - listitem [ref=e661]: The selected step does not move after filtering, so the main school result is not being driven by a few extreme districts.
+    - generic [ref=e662]: 24 / 51
+  - generic [ref=e666]:
+    - 'heading "CASchools: CV Ladder Before and After Cook Filtering" [level=2] [ref=e667]'
+    - paragraph [ref=e668]:
+      - img [ref=e669]
+    - list [ref=e670]:
+      - listitem [ref=e671]: The best step stays the same after Cook filtering, but the full curve shifts down.
+      - listitem [ref=e672]: Filtering helps fit quality without changing which predictors matter.
+    - generic [ref=e673]: 25 / 51
+  - generic [ref=e677]:
+    - 'heading "CASchools: Final Model" [level=2] [ref=e678]'
+    - list [ref=e679]:
+      - listitem [ref=e680]: "Final predictors kept:"
+    - paragraph [ref=e681]: str, lunch, income, english, grades
+    - list [ref=e682]:
+      - listitem [ref=e683]: "Removed from full model:"
+    - paragraph [ref=e684]: calworks, computer.rate, expenditure
+    - table [ref=e686]:
+      - rowgroup [ref=e687]:
+        - row "Metric Value" [ref=e688]:
+          - columnheader "Metric" [ref=e689]
+          - columnheader "Value" [ref=e690]
+      - rowgroup [ref=e691]:
+        - row "Adjusted R2 0.8560" [ref=e692]:
+          - cell "Adjusted R2" [ref=e693]
+          - cell "0.8560" [ref=e694]
+        - row "Residual s 7.0500" [ref=e695]:
+          - cell "Residual s" [ref=e696]
+          - cell "7.0500" [ref=e697]
+        - row "Outliers Removed 18.0000" [ref=e698]:
+          - cell "Outliers Removed" [ref=e699]
+          - cell "18.0000" [ref=e700]
+        - row "Test RMSE 8.6800" [ref=e701]:
+          - cell "Test RMSE" [ref=e702]
+          - cell "8.6800" [ref=e703]
+        - row "Test R2 0.7701" [ref=e704]:
+          - cell "Test R2" [ref=e705]
+          - cell "0.7701" [ref=e706]
+    - table [ref=e708]:
+      - rowgroup [ref=e709]:
+        - row "Term Estimate P Value" [ref=e710]:
+          - columnheader "Term" [ref=e711]
+          - columnheader "Estimate" [ref=e712]
+          - columnheader "P Value" [ref=e713]
+      - rowgroup [ref=e714]:
+        - row "lunch -0.4230 < 1e-16" [ref=e715]:
+          - cell "lunch" [ref=e716]
+          - cell "-0.4230" [ref=e717]
+          - cell "< 1e-16" [ref=e718]
+        - row "income 0.6233 6.04e-12" [ref=e719]:
+          - cell "income" [ref=e720]
+          - cell "0.6233" [ref=e721]
+          - cell "6.04e-12" [ref=e722]
+        - row "english -0.1653 4.99e-07" [ref=e723]:
+          - cell "english" [ref=e724]
+          - cell "-0.1653" [ref=e725]
+          - cell "4.99e-07" [ref=e726]
+        - row "str -0.9092 0.000126" [ref=e727]:
+          - cell "str" [ref=e728]
+          - cell "-0.9092" [ref=e729]
+          - cell "0.000126" [ref=e730]
+        - row "gradesKK-08 -4.2098 0.000536" [ref=e731]:
+          - cell "gradesKK-08" [ref=e732]
+          - cell "-4.2098" [ref=e733]
+          - cell "0.000536" [ref=e734]
+    - list [ref=e735]:
+      - listitem [ref=e736]:
+        - code [ref=e737]: gradesKK-08
+        - text: is kept in the pooled model because it captures a real district-type difference; dropping it would likely push that effect into the other coefficients.
+      - listitem [ref=e738]: The district-type extensions test that choice directly and find little evidence that district type changes the slopes of the shared predictors.
+      - listitem [ref=e739]: Once poverty proxies and district type are in the model, extra resource variables add much less explanatory power.
+    - generic [ref=e740]: 26 / 51
+  - generic [ref=e744]:
+    - 'heading "CASchools: Diagnostics" [level=2] [ref=e745]'
+    - paragraph [ref=e746]:
+      - img [ref=e747]
+    - table [ref=e748]:
+      - rowgroup [ref=e749]:
+        - row "Test P.Value" [ref=e750]:
+          - columnheader "Test" [ref=e751]
+          - columnheader "P.Value" [ref=e752]
+      - rowgroup [ref=e753]:
+        - row "Shapiro-Wilk 0.5591" [ref=e754]:
+          - cell "Shapiro-Wilk" [ref=e755]
+          - cell "0.5591" [ref=e756]
+        - row "Breusch-Pagan 0.0474" [ref=e757]:
+          - cell "Breusch-Pagan" [ref=e758]
+          - cell "0.0474" [ref=e759]
+        - row "Durbin-Watson 1.39e-05" [ref=e760]:
+          - cell "Durbin-Watson" [ref=e761]
+          - cell "1.39e-05" [ref=e762]
+    - list [ref=e763]:
+      - listitem [ref=e764]: The residual diagnostics are acceptable for this project; the larger interpretive question is coefficient meaning, not obvious model failure.
+    - generic [ref=e765]: 27 / 51
+  - generic [ref=e769]:
+    - 'heading "CASchools: Bootstrap Coefficient Intervals" [level=2] [ref=e770]'
+    - paragraph [ref=e771]:
+      - img [ref=e772]
+    - list [ref=e773]:
+      - listitem [ref=e774]:
+        - text: These are empirical 95% intervals from
+        - code [ref=e775]: "200"
+        - text: bootstrap resamples.
+      - listitem [ref=e776]: A log scale would not work here because several coefficients are negative.
+      - listitem [ref=e777]:
+        - text: The intercept is omitted so the predictor intervals do not collapse visually toward
+        - code [ref=e778]: "0"
+        - text: .
+      - listitem [ref=e779]:
+        - code [ref=e780]: lunch
+        - text: and
+        - code [ref=e781]: income
+        - text: remain the most stable effects.
+    - generic [ref=e782]: 28 / 51
+  - generic [ref=e786]:
+    - 'heading "CASchools: Prediction Examples" [level=2] [ref=e787]'
+    - table [ref=e788]:
+      - rowgroup [ref=e789]:
+        - row "Scenario Fit CI PI" [ref=e790]:
+          - columnheader "Scenario" [ref=e791]
+          - columnheader "Fit" [ref=e792]
+          - columnheader "CI" [ref=e793]
+          - columnheader "PI" [ref=e794]
+      - rowgroup [ref=e795]:
+        - row "Lower-risk district 672.56 (670.3, 674.82) (658.5, 686.62)" [ref=e796]:
+          - cell "Lower-risk district" [ref=e797]
+          - cell "672.56" [ref=e798]
+          - cell "(670.3, 674.82)" [ref=e799]
+          - cell "(658.5, 686.62)" [ref=e800]
+        - row "Higher-risk district 636.56 (635.06, 638.06) (622.6, 650.52)" [ref=e801]:
+          - cell "Higher-risk district" [ref=e802]
+          - cell "636.56" [ref=e803]
+          - cell "(635.06, 638.06)" [ref=e804]
+          - cell "(622.6, 650.52)" [ref=e805]
+    - list [ref=e806]:
+      - listitem [ref=e807]: Lower lunch rates and higher district income lead to higher predicted scores in the final model.
+      - listitem [ref=e808]: The wider prediction intervals again show that district-level mean structure is estimated more tightly than individual-district outcome.
+    - generic [ref=e809]: 29 / 51
+  - generic [ref=e813]:
+    - 'heading "CASchools: CI and PI Overlay" [level=2] [ref=e814]'
+    - paragraph [ref=e815]:
+      - img [ref=e816]
+    - list [ref=e817]:
+      - listitem [ref=e818]: The x-axis is fitted mean response, sorted from low to high.
+      - listitem [ref=e819]: New prediction cases now sit at their own fitted locations instead of being appended at the end.
+      - listitem [ref=e820]: The spread around the fitted line is consistent with the wider orange prediction bands for new districts.
+    - generic [ref=e821]: 30 / 51
+  - generic [ref=e825]:
+    - 'heading "CASchools: Predicted vs Actual (Test Set)" [level=2] [ref=e826]'
+    - paragraph [ref=e827]:
+      - img [ref=e828]
+    - list [ref=e829]:
+      - listitem [ref=e830]: The tight scatter around the diagonal shows the model generalizes well to unseen districts.
+      - listitem [ref=e831]: Residual spread is roughly even across score levels, consistent with the Breusch-Pagan result.
+      - listitem [ref=e832]: Any remaining deviations reflect unexplained district-level variation, not a systematic model failure.
+    - generic [ref=e833]: 31 / 51
+  - generic [ref=e837]:
+    - heading "Part II" [level=1] [ref=e838]
+    - heading "Finance Application" [level=2] [ref=e839]
+    - paragraph [ref=e840]: 6 NYSE stocks, 3 years of close prices, and S&P 500 benchmarking
+    - generic [ref=e841]: 32 / 51
+  - generic [ref=e845]:
+    - 'heading "Finance: Method Steps" [level=2] [ref=e846]'
+    - table [ref=e847]:
+      - rowgroup [ref=e848]:
+        - row "Step Detail" [ref=e849]:
+          - columnheader "Step" [ref=e850]
+          - columnheader "Detail" [ref=e851]
+      - rowgroup [ref=e852]:
+        - row "Pull close prices Yahoo Finance, 2023-2025" [ref=e853]:
+          - cell "Pull close prices" [ref=e854]
+          - cell "Yahoo Finance, 2023-2025" [ref=e855]
+        - row "Convert to daily returns Arithmetic daily returns" [ref=e856]:
+          - cell "Convert to daily returns" [ref=e857]
+          - cell "Arithmetic daily returns" [ref=e858]
+        - row "Annualize return and risk Mean252 and sdsqrt(252)" [ref=e859]:
+          - cell "Annualize return and risk" [ref=e860]
+          - cell "Mean252 and sdsqrt(252)" [ref=e861]:
+            - text: Mean
+            - emphasis [ref=e862]: 252 and sd
+            - text: sqrt(252)
+        - row "Compare correlation to market Corr(stock, SP500)" [ref=e863]:
+          - cell "Compare correlation to market" [ref=e864]
+          - cell "Corr(stock, SP500)" [ref=e865]
+        - row "Plot cumulative returns Growth of $1 over time" [ref=e866]:
+          - cell "Plot cumulative returns" [ref=e867]
+          - cell "Growth of $1 over time" [ref=e868]
+        - row "Run CAPM regressions alpha, beta, and R2" [ref=e869]:
+          - cell "Run CAPM regressions" [ref=e870]
+          - cell "alpha, beta, and R2" [ref=e871]
+        - row "Track rolling beta 60-day beta windows" [ref=e872]:
+          - cell "Track rolling beta" [ref=e873]
+          - cell "60-day beta windows" [ref=e874]
+        - row "Track rolling correlation 60-day correlation windows" [ref=e875]:
+          - cell "Track rolling correlation" [ref=e876]
+          - cell "60-day correlation windows" [ref=e877]
+    - list [ref=e878]:
+      - listitem [ref=e879]: Returns, not raw prices, are the right object for comparison because the stocks trade at very different price levels.
+      - listitem [ref=e880]: "The finance results answer different questions: average performance, market linkage, regression exposure, and time variation."
+    - generic [ref=e881]: 33 / 51
+  - generic [ref=e885]:
+    - 'heading "Finance: Stock Selection" [level=2] [ref=e886]'
+    - table [ref=e887]:
+      - rowgroup [ref=e888]:
+        - row "Ticker Company Industry" [ref=e889]:
+          - columnheader "Ticker" [ref=e890]
+          - columnheader "Company" [ref=e891]
+          - columnheader "Industry" [ref=e892]
+      - rowgroup [ref=e893]:
+        - row "JPM JPMorgan Chase Financial Services" [ref=e894]:
+          - cell "JPM" [ref=e895]
+          - cell "JPMorgan Chase" [ref=e896]
+          - cell "Financial Services" [ref=e897]
+        - row "JNJ Johnson & Johnson Healthcare" [ref=e898]:
+          - cell "JNJ" [ref=e899]
+          - cell "Johnson & Johnson" [ref=e900]
+          - cell "Healthcare" [ref=e901]
+        - row "XOM Exxon Mobil Energy" [ref=e902]:
+          - cell "XOM" [ref=e903]
+          - cell "Exxon Mobil" [ref=e904]
+          - cell "Energy" [ref=e905]
+        - row "WMT Walmart Consumer Defensive" [ref=e906]:
+          - cell "WMT" [ref=e907]
+          - cell "Walmart" [ref=e908]
+          - cell "Consumer Defensive" [ref=e909]
+        - row "CAT Caterpillar Industrials" [ref=e910]:
+          - cell "CAT" [ref=e911]
+          - cell "Caterpillar" [ref=e912]
+          - cell "Industrials" [ref=e913]
+        - row "BA Boeing Company Aerospace" [ref=e914]:
+          - cell "BA" [ref=e915]
+          - cell "Boeing Company" [ref=e916]
+          - cell "Aerospace" [ref=e917]
+    - list [ref=e918]:
+      - listitem [ref=e919]: All six stocks are NYSE-listed.
+      - listitem [ref=e920]: Industries are intentionally different to avoid choosing six similar firms.
+      - listitem [ref=e921]:
+        - text: "Benchmark:"
+        - code [ref=e922]: ^GSPC
+        - text: for the S&P 500.
+      - listitem [ref=e923]: The cross-sector mix gives the portfolio visibly different beta and correlation behavior instead of six nearly identical names.
+    - generic [ref=e924]: 34 / 51
+  - generic [ref=e928]:
+    - 'heading "Finance: Daily Return Distributions" [level=2] [ref=e929]'
+    - paragraph [ref=e930]:
+      - img [ref=e931]
+    - list [ref=e932]:
+      - listitem [ref=e933]: All six stocks show fat-tailed return distributions — extreme days occur more often than a normal model predicts.
+      - listitem [ref=e934]: The spread of each histogram confirms the annualized risk ordering shown in the return-risk plot.
+      - listitem [ref=e935]: Comparing widths visually separates the more volatile names from the steadier defensive stocks.
+    - generic [ref=e936]: 35 / 51
+  - generic [ref=e940]:
+    - 'heading "Finance: Close Prices" [level=2] [ref=e941]'
+    - paragraph [ref=e942]:
+      - img [ref=e943]
+    - list [ref=e944]:
+      - listitem [ref=e945]: Raw close prices mainly show different scales and market regimes for the six selected stocks.
+      - listitem [ref=e946]: The next comparisons switch to returns because raw dollar levels are not directly comparable across stocks.
+    - generic [ref=e947]: 36 / 51
+  - generic [ref=e951]:
+    - 'heading "Finance: Annualized Return and Risk" [level=2] [ref=e952]'
+    - paragraph [ref=e953]:
+      - img [ref=e954]
+    - list [ref=e955]:
+      - listitem [ref=e956]: CAT has the strongest annualized return, while BA carries the most risk.
+      - listitem [ref=e957]: JNJ is the defensive end of the group, so the chart separates aggressive from steadier names.
+    - generic [ref=e958]: 37 / 51
+  - generic [ref=e962]:
+    - 'heading "Finance: Correlation with S&P 500 vs Risk and Return" [level=2] [ref=e963]'
+    - table [ref=e965]:
+      - rowgroup [ref=e966]:
+        - row "Ticker Annual Return Annual Risk Corr with SP500" [ref=e967]:
+          - columnheader "Ticker" [ref=e968]
+          - columnheader "Annual Return" [ref=e969]
+          - columnheader "Annual Risk" [ref=e970]
+          - columnheader "Corr with SP500" [ref=e971]
+      - rowgroup [ref=e972]:
+        - row "JPM 0.3198 0.2315 0.6023" [ref=e973]:
+          - cell "JPM" [ref=e974]
+          - cell "0.3198" [ref=e975]
+          - cell "0.2315" [ref=e976]
+          - cell "0.6023" [ref=e977]
+        - row "JNJ 0.0650 0.1723 0.0811" [ref=e978]:
+          - cell "JNJ" [ref=e979]
+          - cell "0.0650" [ref=e980]
+          - cell "0.1723" [ref=e981]
+          - cell "0.0811" [ref=e982]
+        - row "XOM 0.0686 0.2270 0.2954" [ref=e983]:
+          - cell "XOM" [ref=e984]
+          - cell "0.0686" [ref=e985]
+          - cell "0.2270" [ref=e986]
+          - cell "0.2954" [ref=e987]
+        - row "WMT 0.3049 0.1991 0.3494" [ref=e988]:
+          - cell "WMT" [ref=e989]
+          - cell "0.3049" [ref=e990]
+          - cell "0.1991" [ref=e991]
+          - cell "0.3494" [ref=e992]
+        - row "CAT 0.3380 0.2899 0.6089" [ref=e993]:
+          - cell "CAT" [ref=e994]
+          - cell "0.3380" [ref=e995]
+          - cell "0.2899" [ref=e996]
+          - cell "0.6089" [ref=e997]
+        - row "BA 0.0929 0.3333 0.4772" [ref=e998]:
+          - cell "BA" [ref=e999]
+          - cell "0.0929" [ref=e1000]
+          - cell "0.3333" [ref=e1001]
+          - cell "0.4772" [ref=e1002]
+    - paragraph [ref=e1004]:
+      - img [ref=e1005]
+    - list [ref=e1006]:
+      - listitem [ref=e1007]: Horizontal position is correlation with the S&P 500, vertical position is annualized return, and bubble size reflects annualized risk.
+      - listitem [ref=e1008]: CAT is the most market-linked stock here, but that does not automatically make it the highest-return name.
+      - listitem [ref=e1009]: JNJ helps show that lower market linkage can pair with a very different return-risk profile.
+    - generic [ref=e1010]: 38 / 51
+  - generic [ref=e1014]:
+    - 'heading "Finance: Linking Risk-Return and Market Correlation" [level=2] [ref=e1015]'
+    - paragraph [ref=e1016]:
+      - img [ref=e1017]
+    - list [ref=e1018]:
+      - listitem [ref=e1019]: Dotted links connect each stock's annual return across the risk view and the market-correlation view.
+      - listitem [ref=e1020]: A stock can be market-linked without having the most extreme risk position, so correlation and volatility are related but not identical.
+    - generic [ref=e1021]: 39 / 51
+  - generic [ref=e1025]:
+    - 'heading "Finance: Correlation Heatmap" [level=2] [ref=e1026]'
+    - paragraph [ref=e1027]:
+      - img [ref=e1028]
+    - list [ref=e1029]:
+      - listitem [ref=e1030]: Warmer colors mean stronger positive correlation; cooler colors mean weaker market co-movement.
+      - listitem [ref=e1031]: Diversification benefit depends on which names are combined, not just how many names are held.
+    - generic [ref=e1032]: 40 / 51
+  - generic [ref=e1036]:
+    - 'heading "Finance: Cumulative Returns" [level=2] [ref=e1037]'
+    - paragraph [ref=e1038]:
+      - img [ref=e1039]
+    - list [ref=e1040]:
+      - listitem [ref=e1041]: CAT finishes with the strongest growth path, while BA trails the group.
+      - listitem [ref=e1042]: The path differences show why average return alone can hide very different investment experiences.
+    - generic [ref=e1043]: 41 / 51
+  - generic [ref=e1047]:
+    - 'heading "Finance: Alpha, Beta, and R-Squared" [level=2] [ref=e1048]'
+    - table [ref=e1049]:
+      - rowgroup [ref=e1050]:
+        - row "Ticker Alpha Daily Alpha Annual Beta R Squared" [ref=e1051]:
+          - columnheader "Ticker" [ref=e1052]
+          - columnheader "Alpha Daily" [ref=e1053]
+          - columnheader "Alpha Annual" [ref=e1054]
+          - columnheader "Beta" [ref=e1055]
+          - columnheader "R Squared" [ref=e1056]
+      - rowgroup [ref=e1057]:
+        - row "JPM 5e-04 0.1261 0.9257 0.3628" [ref=e1058]:
+          - cell "JPM" [ref=e1059]
+          - cell "5e-04" [ref=e1060]
+          - cell "0.1261" [ref=e1061]
+          - cell "0.9257" [ref=e1062]
+          - cell "0.3628" [ref=e1063]
+        - row "JNJ 2e-04 0.0456 0.0927 0.0066" [ref=e1064]:
+          - cell "JNJ" [ref=e1065]
+          - cell "2e-04" [ref=e1066]
+          - cell "0.0456" [ref=e1067]
+          - cell "0.0927" [ref=e1068]
+          - cell "0.0066" [ref=e1069]
+        - row "XOM -1e-04 -0.0246 0.4452 0.0873" [ref=e1070]:
+          - cell "XOM" [ref=e1071]
+          - cell "-1e-04" [ref=e1072]
+          - cell "-0.0246" [ref=e1073]
+          - cell "0.4452" [ref=e1074]
+          - cell "0.0873" [ref=e1075]
+        - row "WMT 8e-04 0.2083 0.4618 0.1221" [ref=e1076]:
+          - cell "WMT" [ref=e1077]
+          - cell "8e-04" [ref=e1078]
+          - cell "0.2083" [ref=e1079]
+          - cell "0.4618" [ref=e1080]
+          - cell "0.1221" [ref=e1081]
+        - row "CAT 4e-04 0.0929 1.1718 0.3707" [ref=e1082]:
+          - cell "CAT" [ref=e1083]
+          - cell "4e-04" [ref=e1084]
+          - cell "0.0929" [ref=e1085]
+          - cell "1.1718" [ref=e1086]
+          - cell "0.3707" [ref=e1087]
+        - row "BA -5e-04 -0.1280 1.0558 0.2277" [ref=e1088]:
+          - cell "BA" [ref=e1089]
+          - cell "-5e-04" [ref=e1090]
+          - cell "-0.1280" [ref=e1091]
+          - cell "1.0558" [ref=e1092]
+          - cell "0.2277" [ref=e1093]
+    - list [ref=e1094]:
+      - listitem [ref=e1095]:
+        - code [ref=e1096]: beta
+        - text: measures sensitivity to market return.
+      - listitem [ref=e1097]:
+        - code [ref=e1098]: alpha
+        - text: measures abnormal return relative to the S&P 500.
+      - listitem [ref=e1099]:
+        - code [ref=e1100]: R^2
+        - text: measures how much of stock-return variation is explained by the market.
+      - listitem [ref=e1101]: CAT is the most market-sensitive name here, and CAT is the stock whose returns are most tightly tied to broad market movement.
+    - generic [ref=e1102]: 42 / 51
+  - generic [ref=e1106]:
+    - 'heading "Finance: CAPM Fitted vs Actual Returns" [level=2] [ref=e1107]'
+    - paragraph [ref=e1108]:
+      - img [ref=e1109]
+    - list [ref=e1110]:
+      - listitem [ref=e1111]: Higher R-squared stocks cluster more tightly around the diagonal.
+      - listitem [ref=e1112]: Wider scatter shows stock-specific variation the market factor cannot explain.
+    - generic [ref=e1113]: 43 / 51
+  - generic [ref=e1117]:
+    - 'heading "Finance: Rolling 60-Day Beta" [level=2] [ref=e1118]'
+    - paragraph [ref=e1119]:
+      - img [ref=e1120]
+    - list [ref=e1121]:
+      - listitem [ref=e1122]:
+        - text: Beta above
+        - code [ref=e1123]: "1"
+        - text: means the stock moved more aggressively than the market in that 60-day window.
+      - listitem [ref=e1124]: Rolling beta shows changing exposure that a single full-sample beta would miss.
+    - generic [ref=e1125]: 44 / 51
+  - generic [ref=e1129]:
+    - 'heading "Finance: Rolling 60-Day Correlation" [level=2] [ref=e1130]'
+    - paragraph [ref=e1131]:
+      - img [ref=e1132]
+    - list [ref=e1133]:
+      - listitem [ref=e1134]: Correlation isolates co-movement strength without the relative-volatility piece.
+      - listitem [ref=e1135]: Comparing rolling beta and rolling correlation separates “moves with the market” from “moves more violently than the market.”
+    - generic [ref=e1136]: 45 / 51
+  - generic [ref=e1140]:
+    - heading "Final Takeaways" [level=1] [ref=e1141]
+    - list [ref=e1142]:
+      - listitem [ref=e1143]:
+        - code [ref=e1144]: HousePrices
+        - text: ": the best CV step is"
+        - code [ref=e1145]: S1
+        - text: ", and Cook filtering improves the whole validation ladder while keeping house-price prediction strong."
+      - listitem [ref=e1146]:
+        - code [ref=e1147]: CASchools
+        - text: ": AIC and CV agree on the same reduced step, and the final model links stronger scores with lower poverty measures and higher district income."
+      - listitem [ref=e1148]: "Finance: the six stocks occupy different risk-return positions, show different market linkage to the S&P 500, and that linkage changes over time in the rolling beta and rolling correlation plots."
+    - generic [ref=e1149]: 46 / 51
+  - generic [ref=e1153]:
+    - heading "Appendix" [level=1] [ref=e1154]
+    - paragraph [ref=e1155]: CASchools district-type extensions
+    - generic [ref=e1156]: 47 / 51
+  - generic [ref=e1160]:
+    - 'heading "Appendix: CASchools Within-Group Fit Check" [level=2] [ref=e1161]'
+    - table [ref=e1162]:
+      - rowgroup [ref=e1163]:
+        - row "District Type N Pooled Within-Group R2 Stratified Within-Group R2 R2 Gain from Splitting" [ref=e1164]:
+          - columnheader "District Type" [ref=e1165]
+          - columnheader "N" [ref=e1166]
+          - columnheader "Pooled Within-Group R2" [ref=e1167]
+          - columnheader "Stratified Within-Group R2" [ref=e1168]
+          - columnheader "R2 Gain from Splitting" [ref=e1169]
+      - rowgroup [ref=e1170]:
+        - row "KK-06 42 0.9201 0.9275 0.0074" [ref=e1171]:
+          - cell "KK-06" [ref=e1172]
+          - cell "42" [ref=e1173]
+          - cell "0.9201" [ref=e1174]
+          - cell "0.9275" [ref=e1175]
+          - cell "0.0074" [ref=e1176]
+        - row "KK-08 266 0.8432 0.8434 0.0002" [ref=e1177]:
+          - cell "KK-08" [ref=e1178]
+          - cell "266" [ref=e1179]
+          - cell "0.8432" [ref=e1180]
+          - cell "0.8434" [ref=e1181]
+          - cell "0.0002" [ref=e1182]
+    - list [ref=e1183]:
+      - listitem [ref=e1184]:
+        - text: These are the right
+        - code [ref=e1185]: R^2
+        - text: "comparisons to make: pooled-model fit inside each district type versus a separate model fit inside that same district type."
+      - listitem [ref=e1186]:
+        - text: Splitting helps
+        - code [ref=e1187]: KK-06
+        - text: by about 0.0074 and changes
+        - code [ref=e1188]: KK-08
+        - text: by only 0.0002.
+      - listitem [ref=e1189]: So the pooled model was already fitting both district types fairly well; stratifying is not a dramatic upgrade.
+    - generic [ref=e1190]: 48 / 51
+  - generic [ref=e1194]:
+    - 'heading "Appendix: CASchools Stratified Coefficients and P Values" [level=2] [ref=e1195]'
+    - table [ref=e1196]:
+      - rowgroup [ref=e1197]:
+        - row "Term KK-06 Est (p) KK-08 Est (p)" [ref=e1198]:
+          - columnheader "Term" [ref=e1199]
+          - columnheader "KK-06 Est (p)" [ref=e1200]
+          - columnheader "KK-08 Est (p)" [ref=e1201]
+      - rowgroup [ref=e1202]:
+        - row "str -0.4693 (0.308301) -0.9888 (0.000237)" [ref=e1203]:
+          - cell "str" [ref=e1204]
+          - cell "-0.4693 (0.308301)" [ref=e1205]
+          - cell "-0.9888 (0.000237)" [ref=e1206]
+        - row "calworks 0.0071 (0.964336) 0.0018 (0.977435)" [ref=e1207]:
+          - cell "calworks" [ref=e1208]
+          - cell "0.0071 (0.964336)" [ref=e1209]
+          - cell "0.0018 (0.977435)" [ref=e1210]
+        - row "lunch -0.3527 (0.000905) -0.4322 (< 1e-16)" [ref=e1211]:
+          - cell "lunch" [ref=e1212]
+          - cell "-0.3527 (0.000905)" [ref=e1213]
+          - cell "-0.4322 (< 1e-16)" [ref=e1214]
+        - row "income 0.9616 (1.27e-05) 0.5758 (7.26e-09)" [ref=e1215]:
+          - cell "income" [ref=e1216]
+          - cell "0.9616 (1.27e-05)" [ref=e1217]
+          - cell "0.5758 (7.26e-09)" [ref=e1218]
+        - row "english -0.2151 (0.030894) -0.1597 (2.49e-05)" [ref=e1219]:
+          - cell "english" [ref=e1220]
+          - cell "-0.2151 (0.030894)" [ref=e1221]
+          - cell "-0.1597 (2.49e-05)" [ref=e1222]
+    - list [ref=e1223]:
+      - listitem [ref=e1224]:
+        - code [ref=e1225]: lunch
+        - text: and
+        - code [ref=e1226]: income
+        - text: are stable in both district types.
+      - listitem [ref=e1227]:
+        - code [ref=e1228]: english
+        - text: is clearly significant in
+        - code [ref=e1229]: KK-08
+        - text: ", but only marginal in the smaller"
+        - code [ref=e1230]: KK-06
+        - text: sample.
+      - listitem [ref=e1231]:
+        - code [ref=e1232]: str
+        - text: stays negative in both groups, but its significance is much less stable than the socioeconomic measures.
+    - generic [ref=e1233]: 49 / 51
+  - generic [ref=e1237]:
+    - 'heading "Appendix: CASchools Interaction Slopes by District Type" [level=2] [ref=e1238]'
+    - table [ref=e1239]:
+      - rowgroup [ref=e1240]:
+        - row "Model Residual.DF RSS F P.Value" [ref=e1241]:
+          - columnheader "Model" [ref=e1242]
+          - columnheader "Residual.DF" [ref=e1243]
+          - columnheader "RSS" [ref=e1244]
+          - columnheader "F" [ref=e1245]
+          - columnheader "P.Value" [ref=e1246]
+      - rowgroup [ref=e1247]:
+        - row "Main-effects pooled model 302 15019.11" [ref=e1248]:
+          - cell "Main-effects pooled model" [ref=e1249]
+          - cell "302" [ref=e1250]
+          - cell "15019.11" [ref=e1251]
+          - cell [ref=e1252]
+          - cell [ref=e1253]
+        - row "Add 5 district-type interactions 296 14902.37 0.3864 0.887" [ref=e1254]:
+          - cell "Add 5 district-type interactions" [ref=e1255]
+          - cell "296" [ref=e1256]
+          - cell "14902.37" [ref=e1257]
+          - cell "0.3864" [ref=e1258]
+          - cell "0.887" [ref=e1259]
+    - table [ref=e1260]:
+      - rowgroup [ref=e1261]:
+        - row "Term KK-06 Slope (p) KK-08 Slope (p) Delta 08-06 (p)" [ref=e1262]:
+          - columnheader "Term" [ref=e1263]
+          - columnheader "KK-06 Slope (p)" [ref=e1264]
+          - columnheader "KK-08 Slope (p)" [ref=e1265]
+          - columnheader "Delta 08-06 (p)" [ref=e1266]
+      - rowgroup [ref=e1267]:
+        - row "str -0.4693 (0.444) -0.9888 (0.000149) -0.5195 (0.435)" [ref=e1268]:
+          - cell "str" [ref=e1269]
+          - cell "-0.4693 (0.444)" [ref=e1270]
+          - cell "-0.9888 (0.000149)" [ref=e1271]
+          - cell "-0.5195 (0.435)" [ref=e1272]
+        - row "calworks 0.0071 (0.973) 0.0018 (0.977) -0.0053 (0.981)" [ref=e1273]:
+          - cell "calworks" [ref=e1274]
+          - cell "0.0071 (0.973)" [ref=e1275]
+          - cell "0.0018 (0.977)" [ref=e1276]
+          - cell "-0.0053 (0.981)" [ref=e1277]
+        - row "lunch -0.3527 (0.00767) -0.4322 (<1e-16) -0.0795 (0.563)" [ref=e1278]:
+          - cell "lunch" [ref=e1279]
+          - cell "-0.3527 (0.00767)" [ref=e1280]
+          - cell "-0.4322 (<1e-16)" [ref=e1281]
+          - cell "-0.0795 (0.563)" [ref=e1282]
+        - row "income 0.9616 (0.000212) 0.5758 (2.3e-09) -0.3858 (0.158)" [ref=e1283]:
+          - cell "income" [ref=e1284]
+          - cell "0.9616 (0.000212)" [ref=e1285]
+          - cell "0.5758 (2.3e-09)" [ref=e1286]
+          - cell "-0.3858 (0.158)" [ref=e1287]
+        - row "english -0.2151 (0.0965) -0.1597 (1.36e-05) 0.0555 (0.679)" [ref=e1288]:
+          - cell "english" [ref=e1289]
+          - cell "-0.2151 (0.0965)" [ref=e1290]
+          - cell "-0.1597 (1.36e-05)" [ref=e1291]
+          - cell "0.0555 (0.679)" [ref=e1292]
+    - list [ref=e1293]:
+      - listitem [ref=e1294]:
+        - text: In R's treatment coding,
+        - code [ref=e1295]: KK-06
+        - text: is the baseline group, so the raw interaction coefficients are slope differences rather than full
+        - code [ref=e1296]: KK-08
+        - text: slopes.
+      - listitem [ref=e1297]:
+        - text: "Reconstructing both group slopes shows the same main pattern in each district type:"
+        - code [ref=e1298]: lunch
+        - text: stays negative and
+        - code [ref=e1299]: income
+        - text: stays positive.
+      - listitem [ref=e1300]: The joint F-test and the large delta p-values both say the slope differences are weak.
+    - generic [ref=e1301]: 50 / 51
+  - generic [ref=e1305]:
+    - 'heading "Appendix: CASchools Interaction Plot Explained" [level=2] [ref=e1306]'
+    - paragraph [ref=e1307]:
+      - img [ref=e1308]
+    - list [ref=e1309]:
+      - listitem [ref=e1310]: The joint F-test gives a p-value of 0.887, so adding all five interactions does not materially improve fit.
+      - listitem [ref=e1311]:
+        - text: Only
+        - code [ref=e1312]: income
+        - text: varies here; the other predictors are fixed at their sample medians, and the near-parallel lines show district type mainly shifts the fitted level rather than the slope pattern.
+    - generic [ref=e1313]: 51 / 51

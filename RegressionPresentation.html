@@ -5,9 +5,9 @@
     <meta charset="utf-8" />
     <meta name="author" content="Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda" />
     <meta name="date" content="2026-04-19" />
-    <script src="RegressionPresentation_files/header-attrs-2.30/header-attrs.js"></script>
+    <script src="RegressionPresentation_files/header-attrs-2.29/header-attrs.js"></script>
     <link href="RegressionPresentation_files/remark-css-0.0.1/default.css" rel="stylesheet" />
-    <link rel="stylesheet" href="project-presentation.css" type="text/css" />
+    <link rel="stylesheet" href="style.css" type="text/css" />
   </head>
   <body>
     <textarea id="source">
@@ -37,14 +37,14 @@ class: center, middle, inverse
 ## Part I: Two Regression Datasets
 ## Part II: Finance Application
 
-&lt;span class="accent"&gt;HousePrices, CASchools, and a 5-stock NYSE portfolio&lt;/span&gt;
+&lt;span class="accent"&gt;HousePrices, CASchools, and a 6-stock NYSE portfolio&lt;/span&gt;
 
 ---
 
 ## Roadmap
 
 - Part I uses two medium-sized datasets with optimal-model workflows.
-- Part II uses five NYSE stocks from different industries plus the
+- Part II uses six NYSE stocks from different industries plus the
   S&amp;P 500 benchmark.
 - Every section shows methods, interim process steps, diagnostics,
   extra validation, and final interpretation.
@@ -130,20 +130,17 @@ class: small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## HousePrices: CV Across the Selection Ladder
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-6-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- `S0` is the full model.
-- Each later step removes one more predictor from a nested ladder.
-- Each step shows `30` validation RMSE values because we run `5` folds
-  and repeat that `6` times.
-- The red dashed line marks the AIC-selected step's mean CV RMSE.
-- The green point marks the true CV minimum, which is `S1` here.
-- One early predictor removal improves validation RMSE, but additional
-  trimming starts to give up signal.
+- `S0` is the full model, and each later step removes one more predictor.
+- Each step shows `30` validation RMSE values from `5` folds repeated
+  `6` times.
+- The green point marks the CV minimum at `S1`; extra trimming starts to
+  give up signal.
 
 ---
 
@@ -195,20 +192,20 @@ class: small-table
 
 ---
 
-class: small-table plot-slide
+class: small-table plot-slide compact small-title
 
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- The whole ladder shifts down after filtering, so the influential cases
-  were hurting validation performance across multiple candidate models.
-- Because the whole curve moves down, Cook filtering improves model
-  stability rather than just rescuing one lucky final step.
+- The whole ladder shifts down after filtering, so influential cases were
+  hurting validation performance across multiple candidate models.
+- Cook filtering improves model stability rather than rescuing one lucky
+  final step.
 
 ---
 
-class: small-table compact
+class: small-table compact small-title
 
 ## HousePrices: Final Model Summary
 
@@ -264,7 +261,7 @@ class: tiny-table compact small-title
 
 ---
 
-class: plot-slide small-table
+class: plot-slide small-table compact small-title diagnostic-slide
 
 ## HousePrices: Diagnostics
 
@@ -282,7 +279,7 @@ class: plot-slide small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title short-plot
 
 ## HousePrices: Bootstrap Coefficient Intervals
 
@@ -293,8 +290,6 @@ class: plot-slide
 - Intervals far from `0` support stable coefficient direction.
 - The intercept is omitted because its much larger scale would compress
   the predictor effects.
-- The most practically important retained terms stay on one side of `0`,
-  which supports stable sign interpretation.
 
 ---
 
@@ -316,18 +311,17 @@ class: small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## HousePrices: CI and PI Overlay
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-17-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- Gray points are actual observed prices.
-- The x-axis is fitted mean response, sorted from low to high.
-- The green line is the fitted mean.
-- Orange bands show PI for observed-data rows.
-- Red triangles and bars now sit at their fitted locations on the green
-  line.
+- Gray points are actual prices, sorted by fitted mean response on the
+  x-axis.
+- The green line is the fitted mean; orange bands show prediction
+  intervals for observed-data rows.
+- Red triangles and bars sit at their fitted locations on the green line.
 - The wider orange bands show that individual-home prediction is much
   harder than estimating the mean response.
 
@@ -407,21 +401,17 @@ class: small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## CASchools: CV Across the Selection Ladder
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-22-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The ladder is built from the training-set full model.
-- Each step again summarizes `30` validation RMSE values from `5` folds
+- Each step summarizes `30` validation RMSE values from `5` folds
   repeated `6` times.
-- This checks whether a simpler school-score model is competitive before
-  touching the test set.
-- Here the AIC step and CV step agree, so the red line lands at the best
-  step.
-- Agreement between AIC and CV makes the reduced school model much more
-  defensible.
+- AIC and CV agree here, which makes the reduced school model more
+  defensible before touching the test set.
 
 ---
 
@@ -468,16 +458,15 @@ class: small-table
 
 ---
 
-class: small-table plot-slide
+class: small-table plot-slide compact small-title
 
 ## CASchools: CV Ladder Before and After Cook Filtering
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-26-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The best step stays the same after Cook filtering, but the full curve
-  shifts down, which makes the selected model look more stable.
-- That means filtering helps fit quality, but it does not change which
-  predictors matter.
+  shifts down.
+- Filtering helps fit quality without changing which predictors matter.
 
 ---
 
@@ -526,7 +515,7 @@ calworks, computer.rate, expenditure
 
 ---
 
-class: plot-slide small-table
+class: plot-slide small-table compact small-title diagnostic-slide
 
 ## CASchools: Diagnostics
 
@@ -545,7 +534,7 @@ class: plot-slide small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title short-plot
 
 ## CASchools: Bootstrap Coefficient Intervals
 
@@ -556,8 +545,7 @@ class: plot-slide
   negative.
 - The intercept is omitted so the predictor intervals do not collapse
   visually toward `0`.
-- `lunch` and `income` remain the most stable effects, while weaker
-  terms sit closer to `0` and deserve more caution.
+- `lunch` and `income` remain the most stable effects.
 
 ---
 
@@ -652,11 +640,11 @@ class: small-table
 |BA     |Boeing Company    |Aerospace          |
 
 - All six stocks are NYSE-listed.
-- Industries are intentionally different to avoid choosing five similar
+- Industries are intentionally different to avoid choosing six similar
   firms.
 - Benchmark: `^GSPC` for the S&amp;P 500.
 - The cross-sector mix gives the portfolio visibly different beta and
-  correlation behavior instead of five nearly identical names.
+  correlation behavior instead of six nearly identical names.
 
 ---
 
@@ -676,9 +664,10 @@ class: plot-slide
 
 ## Finance: Close Prices
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-1.png" width="100%" style="display: block; margin: auto;" /&gt;&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-2.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- Raw close prices mainly show different scales and market regimes.
+- Raw close prices mainly show different scales and market regimes for
+  the six selected stocks.
 - The next comparisons switch to returns because raw dollar levels are
   not directly comparable across stocks.
 
@@ -726,7 +715,7 @@ class: small-table plot-slide compact small-title
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## Finance: Linking Risk-Return and Market Correlation
 
@@ -734,25 +723,21 @@ class: plot-slide
 
 - Dotted links connect each stock's annual return across the risk view
   and the market-correlation view.
-- This makes it easier to compare whether a stock's return profile is
-  lining up more with risk or with broad-market linkage.
-- A stock can be very market-linked without having the most extreme risk
-  position, so correlation and volatility are related but not the same.
+- A stock can be market-linked without having the most extreme risk
+  position, so correlation and volatility are related but not identical.
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## Finance: Correlation Heatmap
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-43-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- Warmer colors mean stronger positive correlation.
-- Cooler colors mean weaker market co-movement.
-- Correlation matters because diversification is weaker when all assets
-  move together.
-- The uneven color pattern shows that diversification benefit depends on
-  which names are combined, not just how many names are held.
+- Warmer colors mean stronger positive correlation; cooler colors mean
+  weaker market co-movement.
+- Diversification benefit depends on which names are combined, not just
+  how many names are held.
 
 ---
 
@@ -793,19 +778,19 @@ class: small-table
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## Finance: CAPM Fitted vs Actual Returns
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-46-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- Stocks with higher R-squared cluster more tightly around the diagonal; lower R-squared stocks show wider scatter.
-- The spread in each panel is the stock-specific variation the CAPM market factor cannot explain.
-- This complements the R-squared column in the CAPM table by making the unexplained residual variation visible.
+- Higher R-squared stocks cluster more tightly around the diagonal.
+- Wider scatter shows stock-specific variation the market factor cannot
+  explain.
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## Finance: Rolling 60-Day Beta
 
@@ -813,26 +798,21 @@ class: plot-slide
 
 - Beta above `1` means the stock moved more aggressively than the market
   in that 60-day window.
-- Beta blends co-movement with relative volatility, so a rising line can
-  mean tighter market linkage, larger stock swings, or both.
-- A single full-sample beta misses these shifts, so rolling beta is more
-  informative about changing exposure.
+- Rolling beta shows changing exposure that a single full-sample beta
+  would miss.
 
 ---
 
-class: plot-slide
+class: plot-slide compact small-title
 
 ## Finance: Rolling 60-Day Correlation
 
 &lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-48-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
-- Correlation isolates co-movement strength only, without the
+- Correlation isolates co-movement strength without the
   relative-volatility piece.
-- Together, the rolling beta and rolling correlation plots show whether
-  a stock became more market-linked because it moved more in sync with
-  the S&amp;P 500, because it got more volatile, or both.
-- Comparing the two rolling plots separates “moves with the market” from
-  “moves more violently than the market.”
+- Comparing rolling beta and rolling correlation separates “moves with
+  the market” from “moves more violently than the market.”
 
 ---
 
@@ -945,9 +925,9 @@ class: plot-slide compact small-title
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
 <script>var slideshow = remark.create({
-  "ratio": "16:9",
-  "highlightStyle": "github",
-  "countIncrementalSlides": false
+"ratio": "16:9",
+"highlightStyle": "github",
+"countIncrementalSlides": false
 });
 if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   window.dispatchEvent(new Event('resize'));
