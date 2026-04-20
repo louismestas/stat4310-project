@@ -108,7 +108,7 @@ build_backward_ladder <- function(model) {
     aic = AIC(model),
     removed = NA_character_,
     stringsAsFactors = FALSE
-  ) # Made a backward stepwise model that reoves predictors one at a time using AIC until a reduced model is achieved
+  ) # Made a backward stepwise model that removes predictors one at a time using AIC until a reduced model is achieved
 
   current_model <- model
 
@@ -906,11 +906,11 @@ finance.stocks <- data.frame(
     "Financial Services",
     "Healthcare",
     "Energy",
-    "Consumer Defensive",
+    "Retail and Wholesale",
     "Industrials",
     "Aerospace"
   )
-)
+) # Changed to Retail and Wholesale"
 
 JPM.f <- getSymbols("JPM", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
 JNJ.f <- getSymbols("JNJ", src = "yahoo", from = "2023-01-01", to = "2025-12-31", auto.assign = FALSE)
