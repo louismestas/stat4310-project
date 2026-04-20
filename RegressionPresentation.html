@@ -56,42 +56,47 @@ class: small-table compact
 ## Part I: Regression Methods
 
 
-|Step                   |Method                               |
-|:----------------------|:------------------------------------|
-|1. Describe data       |response, predictors, missingness    |
-|2. Split Train/Test    |80% / 20%                            |
-|3. Build full model    |lm()                                 |
-|4. Build CV ladder     |nested backward models + repeated CV |
-|5. Compare AIC vs CV   |AIC-optimal vs CV-optimal            |
-|6. Remove outliers     |Cook's distance                      |
-|7. Check sensitivity   |before vs after Cook filtering       |
-|8. Check residuals     |QQ, BP, and DW tests                 |
-|9. Bootstrap intervals |bootstrap coefficient CIs            |
-|10. Predict new cases  |confidence and prediction intervals  |
+|Step                                 |Method                                                |
+|:------------------------------------|:-----------------------------------------------------|
+|1. Describe data                     |response, predictors, missingness                     |
+|2. Split Train/Test                  |80% / 20%                                             |
+|3. Create centered engineered terms  |centered nonlinear terms and interactions             |
+|4. Diagnose collinearity             |correlation/VIF diagnostics only; no pre-AIC removals |
+|5. Build expanded full model         |lm() with base terms plus all engineered candidates   |
+|6. Build CV ladder                   |nested backward models + repeated CV                  |
+|7. Compare AIC vs CV                 |AIC-optimal vs CV-optimal                             |
+|8. Remove outliers                   |Cook's distance                                       |
+|9. Rerun AIC/CV after Cook filtering |post-Cook diagnostics and model selection             |
+|10. Check residuals                  |QQ, BP, and DW tests                                  |
+|11. Check Box-Cox transformation     |profile likelihood plus original-scale test metrics   |
+|12. Bootstrap intervals              |bootstrap coefficient CIs                             |
+|13. Predict new cases                |confidence and prediction intervals                   |
 
 ---
 
 ## HousePrices: Dataset Snapshot
 
 .pull-left[
-- `546` observations and `12` variables
+- `546` observations and `12` original variables
 - Response: `price`
 - `lotsize`: lot size of the house
 - `bedrooms`, `bathrooms`, `stories`, `garage`: size/layout features
 - `driveway`, `recreation`, `fullbase`, `gasheat`, `aircon`, `prefer`:
   yes/no housing amenities or location preference indicators
 - Missing values: `0`
+- Centered versions, log lot size, squared lot size, and interactions
+  are created after the train/test split.
 - The mix of structural and amenity variables makes the dataset useful
   for both interpretation and prediction.
 ]
 
 .pull-right[
 
-|Item    | Value|
-|:-------|-----:|
-|Rows    |   546|
-|Columns |    12|
-|Missing |     0|
+|Item                      | Value|
+|:-------------------------|-----:|
+|Rows                      |   546|
+|Columns after engineering |    25|
+|Missing                   |     0|
 ]
 
 ---
@@ -113,20 +118,61 @@ class: small-table
 ## HousePrices: Interim Process
 
 
-|Step                |Detail                      |
-|:-------------------|:---------------------------|
-|Split data          |448 train / 98 test         |
-|Build full model    |11 starting predictors      |
-|Build model ladder  |11 nested steps             |
-|Run repeated CV     |5 folds x 6 repeats         |
-|Compare AIC and CV  |Step 0 vs Step 1            |
-|Remove outliers     |36 points above Cook cutoff |
-|Check residuals     |QQ, BP, and DW tests        |
-|Bootstrap intervals |200 bootstrap resamples     |
-|Predict new homes   |2 cases with CI and PI      |
+|Step                                              |Detail                                                       |
+|:-------------------------------------------------|:------------------------------------------------------------|
+|Split data                                        |448 train / 98 test                                          |
+|Create centered engineered terms                  |8 derived/interaction candidates                             |
+|Diagnose collinearity                             |1 high-correlation pairs flagged; 0 pre-AIC removals         |
+|Build centered expanded full model                |19 centered starting predictors                              |
+|Build model ladder                                |19 nested steps                                              |
+|Run repeated CV                                   |5 folds x 6 repeats                                          |
+|Compare AIC and CV                                |Step 6 vs Step 9                                             |
+|Remove outliers                                   |34 points above Cook cutoff                                  |
+|Rerun diagnostics and AIC/CV after Cook filtering |1 post-Cook high-correlation pairs; Step 6 AIC and Step 6 CV |
+|Check residuals                                   |QQ, BP, and DW tests                                         |
+|Check Box-Cox transformation                      |profile plot and original-scale test metrics                 |
+|Bootstrap intervals                               |200 bootstrap resamples                                      |
+|Predict new homes                                 |2 cases with CI and PI                                       |
 
 - The ordering matters: choose the model on training data, check
-  influential cases, then touch the held-out test set only once.
+  influential cases, rerun selection after filtering, then touch the
+  held-out test set only once.
+- Engineered terms and interactions are created before model selection,
+  so AIC/CV can reject them instead of us deciding manually.
+
+---
+
+class: small-table compact
+
+## HousePrices: VIF and Correlation Diagnostics
+
+
+|Stage                 | High Correlation Pairs|Max Adjusted VIF | Terms Sent to AIC/CV|Pre-AIC Removals                            |
+|:---------------------|----------------------:|:----------------|--------------------:|:-------------------------------------------|
+|Initial training data |                      1|167.77           |                   19|None; AIC/CV selects from full centered set |
+
+
+
+|Stage                       | High Correlation Pairs|Max Adjusted VIF | Terms Sent to AIC/CV|Pre-AIC Removals                            |
+|:---------------------------|----------------------:|:----------------|--------------------:|:-------------------------------------------|
+|Cook-filtered training data |                      1|163.23           |                   19|None; AIC/CV selects from full centered set |
+
+
+|Term                 |Adjusted VIF |
+|:--------------------|:------------|
+|lotsize_c            |163.23       |
+|log_lotsize_c        |123.96       |
+|lotsize_1000_c_sq    |13.43        |
+|prefer:log_lotsize_c |1.86         |
+|garage_prefer_c      |1.74         |
+|stories_c            |1.70         |
+
+- VIF is used as a warning about coefficient stability, not as an
+  automatic deletion rule.
+- The expanded model still goes into AIC/CV intact because interactions
+  and squared terms are correlated with their ingredients by design.
+- Cook filtering is repeated before the final ladder, so the VIF picture
+  matches the data used for the reported model.
 
 ---
 
@@ -134,7 +180,7 @@ class: plot-slide
 
 ## HousePrices: CV Across the Selection Ladder
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-6-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-8-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - `S0` is the full model.
 - Each later step removes one more predictor from a nested ladder.
@@ -154,13 +200,13 @@ class: small-table
 
 |Model       |Best Step | Predictors|  CV RMSE|
 |:-----------|:---------|----------:|--------:|
-|AIC-optimal |Step 0    |         11| 15800.09|
-|CV-optimal  |Step 1    |         10| 15773.42|
+|AIC-optimal |Step 6    |         13| 15605.89|
+|CV-optimal  |Step 9    |         10| 15554.87|
 
 - AIC and CV are compared on the same training-set ladder.
 - The held-out 20% test set is used only for the final check.
-- For `HousePrices`, the CV gap is only 26.66, so the test
-  flip of 234.64 is normal one-split noise rather than a
+- For `HousePrices`, the CV gap is only 51.03, so the test
+  flip of -71.96 is normal one-split noise rather than a
   contradiction.
 - In practice, both criteria are pointing to nearly the same part of the
   ladder rather than arguing for very different housing models.
@@ -179,8 +225,8 @@ class: small-table
 
 |Training Data Used          |AIC Best Step | AIC RMSE|CV Best Step |  CV RMSE|
 |:---------------------------|:-------------|--------:|:------------|--------:|
-|Original training data      |Step 0        | 15800.09|Step 1       | 15773.42|
-|Cook-filtered training data |Step 1        | 11525.72|Step 1       | 11525.72|
+|Original training data      |Step 6        | 15605.89|Step 9       | 15554.87|
+|Cook-filtered training data |Step 6        | 11528.01|Step 6       | 11528.01|
 
 - The upper table asks whether influential sales change model choice or mostly change the size of the validation error.
 - We're asking two questions about those weird sales:
@@ -192,8 +238,8 @@ class: small-table
 
 |Training Data Used          |AIC Best Step |CV Best Step |Held-out Test RMSE             |
 |:---------------------------|:-------------|:------------|:------------------------------|
-|Original training data      |Step 0        |Step 1       |AIC 15361.11, CV 15595.75      |
-|Cook-filtered training data |Step 1        |Step 1       |15195.88 (same for AIC and CV) |
+|Original training data      |Step 6        |Step 9       |AIC 15658.57, CV 15586.61      |
+|Cook-filtered training data |Step 6        |Step 6       |15561.44 (same for AIC and CV) |
 
 - In the upper table, both RMSE columns are repeated-CV validation RMSE. RMSE = how far off our predictions are on average (lower = better)
 - In the lower table, the RMSE is computed on the held-out 20% test set
@@ -209,7 +255,7 @@ class: small-table plot-slide
 
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-12-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The whole ladder shifts down after filtering, so the influential cases
   were hurting validation performance across multiple candidate models.
@@ -224,25 +270,26 @@ class: small-table compact
 
 - Final predictors kept:
 
-lotsize, bedrooms, bathrooms, stories, driveway, recreation, fullbase, gasheat, aircon, garage, prefer
+lotsize_c, bathrooms_c, stories_c, driveway, fullbase, gasheat, aircon, garage_c, prefer, log_lotsize_c, prefer:log_lotsize_c, aircon:log_lotsize_c, garage_c:lotsize_1000_c
 
 - Removed from full model:
 
-None from the full model
+bedrooms_c, recreation, lotsize_1000_c_sq, bed_bath_c, bath_story_c, garage_prefer_c
 
-- The final model keeps the variables that most directly describe usable
-  house characteristics and preferred location.
-- Because no term drops from the full model, the main housing features
-  appear to add complementary signal rather than redundant overlap.
+- "Removed" now means removed from the expanded candidate model, which
+  includes centered base terms plus derived and interaction candidates.
+- The final model is selected after Cook filtering, so the reported
+  terms reflect both influence screening and the post-Cook AIC/CV ladder.
 
 
-|Metric           |      Value|
-|:----------------|----------:|
-|Adjusted R2      |     0.7418|
-|Residual s       | 11281.6100|
-|Outliers Removed |    36.0000|
-|Test RMSE        | 15290.8400|
-|Test R2          |     0.6612|
+|Metric           |Value                      |
+|:----------------|:--------------------------|
+|Selection Used   |Post-Cook AIC/CV agreement |
+|Adjusted R2      |0.7434                     |
+|Residual s       |11277.06                   |
+|Outliers Removed |34                         |
+|Test RMSE        |15561.44                   |
+|Test R2          |0.6491                     |
 
 ---
 
@@ -251,26 +298,53 @@ class: tiny-table compact small-title
 ## HousePrices: Final Model Terms
 
 
-|Term          |Estimate   |P Value  |
-|:-------------|:----------|:--------|
-|lotsize       |3.7246     |&lt; 1e-16  |
-|stories       |7513.8128  |&lt; 1e-16  |
-|bathrooms     |11862.8341 |1.10e-16 |
-|airconyes     |11024.1191 |1.58e-15 |
-|preferyes     |8693.1604  |5.30e-09 |
-|garage        |2990.4355  |5.96e-05 |
-|fullbaseyes   |5195.2531  |0.000154 |
-|gasheatyes    |11673.0625 |0.000359 |
-|drivewayyes   |5494.4737  |0.001009 |
-|recreationyes |2702.0028  |0.097389 |
-|bedrooms      |1115.7889  |0.213757 |
+|Term                    |Estimate   |P Value  |
+|:-----------------------|:----------|:--------|
+|stories_c               |7805.6955  |&lt; 1e-16  |
+|bathrooms_c             |12852.9679 |&lt; 1e-16  |
+|airconyes               |9729.5636  |7.14e-12 |
+|preferyes               |9546.3443  |2.94e-10 |
+|fullbaseyes             |6006.3710  |3.34e-06 |
+|log_lotsize_c           |29548.4905 |8.23e-06 |
+|gasheatyes              |13901.8788 |4.30e-05 |
+|garage_c                |2565.4854  |0.000541 |
+|drivewayyes             |4261.8654  |0.013657 |
+|garage_c:lotsize_1000_c |874.8578   |0.022088 |
+|lotsize_c               |-2.3979    |0.046558 |
+|preferyes:log_lotsize_c |5978.7046  |0.071843 |
+|airconyes:log_lotsize_c |6490.6674  |0.086865 |
 
 - Larger lots, more stories and bathrooms, air conditioning, a garage,
   and preferred location all move fitted price upward when the other
   features are held fixed.
 - The coefficient table shows that the strongest evidence sits in
-  structural and amenity terms rather than in one single dominant
-  feature.
+  structural, amenity, and retained engineered terms rather than in one
+  single dominant feature.
+
+---
+
+class: tiny-table compact small-title
+
+## HousePrices: Engineered Terms Kept
+
+
+|Term                    |Type        |Meaning                                                                         |Kept In Final Model |
+|:-----------------------|:-----------|:-------------------------------------------------------------------------------|:-------------------|
+|log_lotsize_c           |Derived     |Centered natural log of lot size.                                               |Yes                 |
+|lotsize_1000_c_sq       |Derived     |Squared centered lot size in thousands.                                         |No                  |
+|bed_bath_c              |Interaction |Centered bedrooms multiplied by centered bathrooms.                             |No                  |
+|bath_story_c            |Interaction |Centered bathrooms multiplied by centered stories.                              |No                  |
+|garage_prefer_c         |Interaction |Centered garage spaces multiplied by preferred-neighborhood indicator.          |No                  |
+|log_lotsize_c:prefer    |Interaction |Centered log lot size slope allowed to differ by preferred-neighborhood status. |No                  |
+|log_lotsize_c:aircon    |Interaction |Centered log lot size slope allowed to differ by air-conditioning status.       |No                  |
+|garage_c:lotsize_1000_c |Interaction |Centered garage-space effect allowed to vary by centered lot size.              |Yes                 |
+
+- AIC/CV considered these terms from the start; they were not pasted on
+  after the final model was chosen.
+- Retained derived terms mean the house-price relationship is not purely
+  linear in the original variables.
+- Retained interactions mean at least one housing feature changes slope
+  depending on another feature or amenity.
 
 ---
 
@@ -278,17 +352,57 @@ class: plot-slide small-table
 
 ## HousePrices: Diagnostics
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-13-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-16-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 
 |Test          |P.Value  |
 |:-------------|:--------|
-|Shapiro-Wilk  |0.021159 |
-|Breusch-Pagan |0.009426 |
-|Durbin-Watson |0.000158 |
+|Shapiro-Wilk  |0.0035   |
+|Breusch-Pagan |0.0353   |
+|Durbin-Watson |5.95e-07 |
 
 - The residual checks do not show a single breakdown large enough to
   undermine the model for the main inference and prediction goals here.
+
+---
+
+class: small-table plot-slide compact
+
+## HousePrices: Box-Cox Response Check
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-18-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+| Best Lambda|Approx. 95% Lambda Interval |Lambda 1 In Interval |Decision                                                                    |
+|-----------:|:---------------------------|:--------------------|:---------------------------------------------------------------------------|
+|        0.52|[0.33, 0.7]                 |FALSE                |Report as sensitivity evidence; lambda = 1 is outside the profile interval. |
+
+- The profile peaks near lambda 0.52;
+  lambda = 1 is outside
+  the approximate 95% interval.
+- We keep the original-scale model as the main result when interpretability
+  and held-out performance are comparable; Box-Cox is the assumption
+  sensitivity check.
+
+---
+
+class: small-table compact
+
+## HousePrices: Box-Cox Test Metrics
+
+
+|Dataset     |Model                           | Lambda| Test R2| Test RMSE|Shapiro P |BP P   |
+|:-----------|:-------------------------------|------:|-------:|---------:|:---------|:------|
+|HousePrices |Current final                   |     NA|  0.6491|  15561.44|0.0035    |0.0353 |
+|HousePrices |Box-Cox naive back-transform    |   0.52|  0.6532|  15470.60|0.5007    |0.5137 |
+|HousePrices |Box-Cox smearing back-transform |   0.52|  0.6522|  15493.34|0.5007    |0.5137 |
+
+- The comparison is made on the original price scale, so RMSE remains
+  interpretable as average dollar prediction error.
+- The smearing version corrects the back-transform for residual spread
+  on the transformed scale.
+- We treat Box-Cox as a sensitivity model unless it clearly improves
+  held-out RMSE and keeps interpretation acceptable.
 
 ---
 
@@ -296,7 +410,7 @@ class: plot-slide
 
 ## HousePrices: Bootstrap Coefficient Intervals
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-15-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-21-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - These are empirical 95% intervals from `200` bootstrap resamples of
   the final training set.
@@ -315,8 +429,8 @@ class: small-table
 
 |Scenario     |    Fit|CI               |PI               |
 |:------------|------:|:----------------|:----------------|
-|Smaller home |  47871|(45465, 50277)   |(25562, 70180)   |
-|Larger home  | 124806|(117441, 132170) |(101436, 148175) |
+|Smaller home |  49203|(46814, 51593)   |(26905, 71502)   |
+|Larger home  | 130632|(122694, 138570) |(107084, 154180) |
 
 - The confidence interval estimates the mean price.
 - The prediction interval is wider because it predicts an individual
@@ -330,7 +444,7 @@ class: plot-slide
 
 ## HousePrices: CI and PI Overlay
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-17-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-23-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Gray points are actual observed prices.
 - The x-axis is fitted mean response, sorted from low to high.
@@ -347,7 +461,7 @@ class: plot-slide
 
 ## HousePrices: Predicted vs Actual (Test Set)
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-18-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-24-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Points close to the dashed line indicate accurate test-set predictions.
 - Deviations are largest at high price values, showing more uncertainty for expensive homes.
@@ -358,7 +472,7 @@ class: plot-slide
 ## CASchools: Dataset Snapshot
 
 .pull-left[
-- `420` observations and `9` analysis variables
+- `420` observations and `9` original analysis variables
 - Response: average test score `score`
 - `str`: students per teacher
 - `calworks`: percent of students on CalWORKs
@@ -368,17 +482,19 @@ class: plot-slide
 - `grades`: district grade-span category; one fitted indicator is
   `gradesKK-08` for K-8 districts
 - Missing values: `0`
+- Centered variables, squared terms, and socioeconomic interactions are
+  created after the train/test split.
 - The covariates mix school resources with student-composition measures,
   so the model is mainly explanatory rather than causal.
 ]
 
 .pull-right[
 
-|Item    | Value|
-|:-------|-----:|
-|Rows    |   420|
-|Columns |     9|
-|Missing |     0|
+|Item                      | Value|
+|:-------------------------|-----:|
+|Rows                      |   420|
+|Columns after engineering |    22|
+|Missing                   |     0|
 ]
 
 ---
@@ -387,7 +503,7 @@ class: plot-slide
 
 ## CASchools: Exploratory Overview
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-20-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-26-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Score is roughly symmetric and bell-shaped across districts.
 - The negative relationship with lunch rate is the strongest raw signal in the data.
@@ -400,20 +516,60 @@ class: small-table
 ## CASchools: Interim Process
 
 
-|Step                |Detail                      |
-|:-------------------|:---------------------------|
-|Split data          |326 train / 94 test         |
-|Build full model    |8 starting predictors       |
-|Build model ladder  |8 nested steps              |
-|Run repeated CV     |5 folds x 6 repeats         |
-|Compare AIC and CV  |Step 3 vs Step 3            |
-|Remove outliers     |18 points above Cook cutoff |
-|Check residuals     |QQ, BP, and DW tests        |
-|Bootstrap intervals |200 bootstrap resamples     |
-|Predict districts   |2 cases with CI and PI      |
+|Step                                              |Detail                                                         |
+|:-------------------------------------------------|:--------------------------------------------------------------|
+|Split data                                        |324 train / 96 test                                            |
+|Create centered engineered terms                  |10 derived/interaction candidates                              |
+|Diagnose collinearity                             |0 high-correlation pairs flagged; 0 pre-AIC removals           |
+|Build centered expanded full model                |18 centered starting predictors                                |
+|Build model ladder                                |18 nested steps                                                |
+|Run repeated CV                                   |5 folds x 6 repeats                                            |
+|Compare AIC and CV                                |Step 12 vs Step 12                                             |
+|Remove outliers                                   |19 points above Cook cutoff                                    |
+|Rerun diagnostics and AIC/CV after Cook filtering |0 post-Cook high-correlation pairs; Step 12 AIC and Step 12 CV |
+|Check residuals                                   |QQ, BP, and DW tests                                           |
+|Check Box-Cox transformation                      |profile plot and original-scale test metrics                   |
+|Bootstrap intervals                               |200 bootstrap resamples                                        |
+|Predict districts                                 |2 cases with CI and PI                                         |
 
 - The main question is whether school-score variation is driven more by
   student composition than by resource variables.
+- Engineered socioeconomic terms are included before AIC/CV, so nonlinear
+  and interaction patterns must earn their place in the selected model.
+
+---
+
+class: small-table compact
+
+## CASchools: VIF and Correlation Diagnostics
+
+
+|Stage                 | High Correlation Pairs|Max Adjusted VIF | Terms Sent to AIC/CV|Pre-AIC Removals                            |
+|:---------------------|----------------------:|:----------------|--------------------:|:-------------------------------------------|
+|Initial training data |                      0|42.82            |                   18|None; AIC/CV selects from full centered set |
+
+
+
+|Stage                       | High Correlation Pairs|Max Adjusted VIF | Terms Sent to AIC/CV|Pre-AIC Removals                            |
+|:---------------------------|----------------------:|:----------------|--------------------:|:-------------------------------------------|
+|Cook-filtered training data |                      0|39.91            |                   18|None; AIC/CV selects from full centered set |
+
+
+|Term             |Adjusted VIF |
+|:----------------|:------------|
+|lunch_c          |39.91        |
+|english_c        |37.53        |
+|english_c:grades |36.93        |
+|lunch_c:grades   |35.03        |
+|income_c         |19.85        |
+|income_c:grades  |15.48        |
+
+- Higher VIFs are expected when socioeconomic variables, squares, and
+  interactions describe overlapping district conditions.
+- We document the redundancy, then let AIC/CV decide whether any
+  engineered term improves prediction enough to keep.
+- This avoids deleting interaction terms just because they are naturally
+  correlated with the variables that created them.
 
 ---
 
@@ -421,7 +577,7 @@ class: plot-slide
 
 ## CASchools: CV Across the Selection Ladder
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-22-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-30-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The ladder is built from the training-set full model.
 - Each step again summarizes `30` validation RMSE values from `5` folds
@@ -442,8 +598,8 @@ class: small-table
 
 |Model       |Best Step | Predictors| CV RMSE|
 |:-----------|:---------|----------:|-------:|
-|AIC-optimal |Step 3    |          5|  8.3683|
-|CV-optimal  |Step 3    |          5|  8.3683|
+|AIC-optimal |Step 12   |          6|   8.444|
+|CV-optimal  |Step 12   |          6|   8.444|
 
 - The agreement here says the AIC-selected reduction is not just an
   artifact of one criterion.
@@ -457,8 +613,8 @@ class: small-table
 
 |Training Data Used          |AIC Best Step | AIC RMSE|CV Best Step | CV RMSE|
 |:---------------------------|:-------------|--------:|:------------|-------:|
-|Original training data      |Step 3        |     8.37|Step 3       |    8.37|
-|Cook-filtered training data |Step 3        |     7.09|Step 3       |    7.09|
+|Original training data      |Step 12       |     8.44|Step 12      |    8.44|
+|Cook-filtered training data |Step 12       |     7.14|Step 12      |    7.14|
 
 - The main question is whether influential districts materially change
   the selected CV step or the full validation curve.
@@ -466,8 +622,8 @@ class: small-table
 
 |Training Data Used          |AIC Best Step |CV Best Step |Held-out Test RMSE         |
 |:---------------------------|:-------------|:------------|:--------------------------|
-|Original training data      |Step 3        |Step 3       |8.54 (same for AIC and CV) |
-|Cook-filtered training data |Step 3        |Step 3       |8.68 (same for AIC and CV) |
+|Original training data      |Step 12       |Step 12      |8.39 (same for AIC and CV) |
+|Cook-filtered training data |Step 12       |Step 12      |8.40 (same for AIC and CV) |
 
 - In the upper table, both RMSE columns are repeated-CV validation RMSE.
 - In the lower table, the RMSE is computed on the held-out 20% test set
@@ -482,7 +638,7 @@ class: small-table plot-slide
 
 ## CASchools: CV Ladder Before and After Cook Filtering
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-26-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-34-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The best step stays the same after Cook filtering, but the full curve
   shifts down, which makes the selected model look more stable.
@@ -497,42 +653,71 @@ class: tiny-table compact
 
 - Final predictors kept:
 
-str, lunch, income, english, grades
+lunch_c, computer.rate_c, income_c, english_c, grades, low_income_pressure_c
 
 - Removed from full model:
 
-calworks, computer.rate, expenditure
+str_c, calworks_c, expenditure_c, income_c_sq, lunch_c_sq, english_c_sq, income_lunch_c, str_lunch_c, lunch_c:grades, income_c:grades, english_c:grades, str_c:grades
 
 .pull-left[
 
-|Metric           |   Value|
-|:----------------|-------:|
-|Adjusted R2      |  0.8560|
-|Residual s       |  7.0500|
-|Outliers Removed | 18.0000|
-|Test RMSE        |  8.6800|
-|Test R2          |  0.7701|
+|Metric           |Value                      |
+|:----------------|:--------------------------|
+|Selection Used   |Post-Cook AIC/CV agreement |
+|Adjusted R2      |0.8485                     |
+|Residual s       |7.04                       |
+|Outliers Removed |19                         |
+|Test RMSE        |8.4                        |
+|Test R2          |0.819                      |
 ]
 
 .pull-right[
 
-|Term        |Estimate |P Value  |
-|:-----------|:--------|:--------|
-|lunch       |-0.4230  |&lt; 1e-16  |
-|income      |0.6233   |6.04e-12 |
-|english     |-0.1653  |4.99e-07 |
-|str         |-0.9092  |0.000126 |
-|gradesKK-08 |-4.2098  |0.000536 |
+|Term                  |Estimate |P Value  |
+|:---------------------|:--------|:--------|
+|lunch_c               |-0.3424  |&lt; 1e-16  |
+|income_c              |0.7782   |5.09e-15 |
+|english_c             |-0.3031  |2.32e-11 |
+|gradesKK-08           |-3.8886  |0.00117  |
+|low_income_pressure_c |0.0029   |0.00658  |
+|computer.rate_c       |18.1300  |0.00773  |
 ]
 
 - `gradesKK-08` is kept in the pooled model because it captures a real
   district-type difference; dropping it would likely push that effect
   into the other coefficients.
-- The district-type extensions test that choice directly and find little
-  evidence that district type changes the slopes of the shared
-  predictors.
-- Once poverty proxies and district type are in the model, extra
-  resource variables add much less explanatory power.
+- The model-selection process also saw squared and interaction terms, so
+  omitted engineered terms are evidence that their extra complexity did
+  not improve the post-Cook ladder enough.
+- Once poverty proxies and district type are in the model, extra resource
+  variables add much less explanatory power.
+
+---
+
+class: tiny-table compact small-title
+
+## CASchools: Engineered Terms Kept
+
+
+|Term                  |Type        |Meaning                                                                        |Kept In Final Model |
+|:---------------------|:-----------|:------------------------------------------------------------------------------|:-------------------|
+|income_c_sq           |Derived     |Squared centered district income.                                              |No                  |
+|lunch_c_sq            |Derived     |Squared centered subsidized-lunch percentage.                                  |No                  |
+|english_c_sq          |Derived     |Squared centered English-learner percentage.                                   |No                  |
+|low_income_pressure_c |Interaction |Centered lunch percentage multiplied by centered English-learner percentage.   |Yes                 |
+|income_lunch_c        |Interaction |Centered income multiplied by centered lunch percentage.                       |No                  |
+|str_lunch_c           |Interaction |Centered student-teacher ratio multiplied by centered lunch percentage.        |No                  |
+|lunch_c:grades        |Interaction |Centered lunch slope allowed to differ by district grade span.                 |No                  |
+|income_c:grades       |Interaction |Centered income slope allowed to differ by district grade span.                |No                  |
+|english_c:grades      |Interaction |Centered English-learner slope allowed to differ by district grade span.       |No                  |
+|str_c:grades          |Interaction |Centered student-teacher-ratio slope allowed to differ by district grade span. |No                  |
+
+- CASchools is the stronger case for socioeconomic nonlinearities because
+  poverty, income, and English-learner share overlap in the raw data.
+- Retained derived or interaction terms mean those patterns explain
+  score variation beyond the original centered main effects.
+- Rejected engineered terms are still useful: they show AIC/CV did not
+  need every possible curve or district-specific slope.
 
 ---
 
@@ -540,14 +725,14 @@ class: plot-slide small-table
 
 ## CASchools: Diagnostics
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-29-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 
-|Test          |P.Value  |
-|:-------------|:--------|
-|Shapiro-Wilk  |0.5591   |
-|Breusch-Pagan |0.0474   |
-|Durbin-Watson |1.39e-05 |
+|Test          |P.Value |
+|:-------------|:-------|
+|Shapiro-Wilk  |0.37430 |
+|Breusch-Pagan |0.35933 |
+|Durbin-Watson |0.00814 |
 
 - The residual diagnostics are acceptable for this project; the larger
   interpretive question is coefficient meaning, not obvious model
@@ -555,11 +740,49 @@ class: plot-slide small-table
 
 ---
 
+class: small-table plot-slide compact
+
+## CASchools: Box-Cox Response Check
+
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-40-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+| Best Lambda|Approx. 95% Lambda Interval |Lambda 1 In Interval |Decision                                                 |
+|-----------:|:---------------------------|:--------------------|:--------------------------------------------------------|
+|       -0.32|[-2, 2]                     |TRUE                 |Keep original score scale; lambda = 1 remains plausible. |
+
+- The profile peaks near lambda -0.32;
+  lambda = 1 is inside
+  the approximate 95% interval.
+- Because test score is naturally interpretable, Box-Cox would need clear
+  diagnostic and prediction gains before replacing the original response.
+
+---
+
+class: small-table compact
+
+## CASchools: Box-Cox Test Metrics
+
+
+|Dataset   |Model                           | Lambda| Test R2| Test RMSE|Shapiro P |BP P  |
+|:---------|:-------------------------------|------:|-------:|---------:|:---------|:-----|
+|CASchools |Current final                   |     NA|  0.8190|      8.40|0.374     |0.359 |
+|CASchools |Box-Cox naive back-transform    |  -0.32|  0.8194|      8.39|0.420     |0.301 |
+|CASchools |Box-Cox smearing back-transform |  -0.32|  0.8190|      8.40|0.420     |0.301 |
+
+- RMSE is still measured in test-score points after back-transforming.
+- If the Box-Cox rows do not meaningfully improve held-out RMSE, the
+  original score scale is easier to defend in presentation.
+- The diagnostic value is still useful because it shows we checked the
+  response-transformation assumption rather than ignoring it.
+
+---
+
 class: plot-slide
 
 ## CASchools: Bootstrap Coefficient Intervals
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-31-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-43-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - These are empirical 95% intervals from `200` bootstrap resamples.
 - A log scale would not work here because several coefficients are
@@ -576,10 +799,10 @@ class: small-table
 ## CASchools: Prediction Examples
 
 
-|Scenario             |    Fit|CI               |PI              |
-|:--------------------|------:|:----------------|:---------------|
-|Lower-risk district  | 672.56|(670.3, 674.82)  |(658.5, 686.62) |
-|Higher-risk district | 636.56|(635.06, 638.06) |(622.6, 650.52) |
+|Scenario             |    Fit|CI               |PI               |
+|:--------------------|------:|:----------------|:----------------|
+|Lower-risk district  | 673.25|(670.69, 675.8)  |(659.15, 687.34) |
+|Higher-risk district | 638.21|(636.96, 639.45) |(624.29, 652.12) |
 
 - Lower lunch rates and higher district income lead to higher predicted
   scores in the final model.
@@ -592,7 +815,7 @@ class: plot-slide
 
 ## CASchools: CI and PI Overlay
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-33-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-45-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The x-axis is fitted mean response, sorted from low to high.
 - New prediction cases now sit at their own fitted locations instead of
@@ -606,7 +829,7 @@ class: plot-slide
 
 ## CASchools: Predicted vs Actual (Test Set)
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-34-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-46-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - The tight scatter around the diagonal shows the model generalizes well to unseen districts.
 - Residual spread is roughly even across score levels, consistent with the Breusch-Pagan result.
@@ -674,7 +897,7 @@ class: plot-slide
 
 ## Finance: Daily Return Distributions
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-37-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-49-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - All six stocks show fat-tailed return distributions — extreme days occur more often than a normal model predicts.
 - The spread of each histogram confirms the annualized risk ordering shown in the return-risk plot.
@@ -686,7 +909,7 @@ class: plot-slide
 
 ## Finance: Close Prices
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-38-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-50-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Raw close prices mainly show different scales and market regimes.
 - The next comparisons switch to returns because raw dollar levels are
@@ -698,7 +921,7 @@ class: plot-slide
 
 ## Finance: Annualized Return and Risk
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-39-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-51-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - CAT has the strongest annualized return, while
   BA carries the most risk.
@@ -724,7 +947,7 @@ class: small-table plot-slide compact small-title
 ]
 
 .pull-right[
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-41-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-53-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 ]
 
 - Horizontal position is correlation with the S&amp;P 500, vertical position
@@ -740,7 +963,7 @@ class: plot-slide
 
 ## Finance: Linking Risk-Return and Market Correlation
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-42-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-54-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Dotted links connect each stock's annual return across the risk view
   and the market-correlation view.
@@ -755,7 +978,7 @@ class: plot-slide
 
 ## Finance: Correlation Heatmap
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-43-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-55-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Warmer colors mean stronger positive correlation.
 - Cooler colors mean weaker market co-movement.
@@ -770,7 +993,7 @@ class: plot-slide
 
 ## Finance: Cumulative Returns
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-44-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-56-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - CAT finishes with the strongest growth path, while
   BA trails the group.
@@ -807,7 +1030,7 @@ class: plot-slide
 
 ## Finance: CAPM Fitted vs Actual Returns
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-46-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-58-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Stocks with higher R-squared cluster more tightly around the diagonal; lower R-squared stocks show wider scatter.
 - The spread in each panel is the stock-specific variation the CAPM market factor cannot explain.
@@ -819,7 +1042,7 @@ class: plot-slide
 
 ## Finance: Rolling 60-Day Beta
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-47-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-59-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Beta above `1` means the stock moved more aggressively than the market
   in that 60-day window.
@@ -834,7 +1057,7 @@ class: plot-slide
 
 ## Finance: Rolling 60-Day Correlation
 
-&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-48-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+&lt;img src="RegressionPresentation_files/figure-html/unnamed-chunk-60-1.png" width="100%" style="display: block; margin: auto;" /&gt;
 
 - Correlation isolates co-movement strength only, without the
   relative-volatility piece.
@@ -850,12 +1073,21 @@ class: center, middle, inverse
 
 # Final Takeaways
 
-- `HousePrices`: the best CV step is `S1`, and Cook filtering improves
-  the whole validation ladder while keeping house-price prediction
-  strong.
-- `CASchools`: AIC and CV agree on the same reduced step, and the final
-  model links stronger scores with lower poverty measures and higher
-  district income.
+- `HousePrices`: centered derived and interaction candidates enter before
+  AIC/CV; the final post-Cook model uses
+  Step 6 and keeps
+  log_lotsize_c as derived terms plus
+  garage_c:lotsize_1000_c as interactions.
+- `HousePrices`: VIF is documented but not used as a pre-filter, and
+  Box-Cox is treated as
+  sensitivity evidence for a transformed response.
+- `CASchools`: the final post-Cook model uses
+  Step 12, keeps
+  None as derived terms and
+  low_income_pressure_c as interactions, and
+  still points primarily to poverty, income, and district type.
+- `CASchools`: Box-Cox is
+  not strong enough to replace the original score scale.
 - Finance: the six stocks occupy different risk-return positions, show
   different market linkage to the S&amp;P 500, and that linkage changes over
   time in the rolling beta and rolling correlation plots.

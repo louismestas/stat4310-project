@@ -223,6 +223,383 @@ bootstrap_coef_table <- function(model, data, B = 200) {
   out
 }
 
+# Computes RMSE and held-out R2 for feature-engineering and Box-Cox sensitivity
+# checks. These are intentionally simple so the calculation is visible.
+feature_rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
+
+feature_test_r2 <- function(actual, predicted) {
+  1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
+}
+
+# Collapses model terms into a readable string. If no terms are present, print
+# "None" instead of returning a blank cell.
+collapse_terms <- function(term_vec) {
+  if (length(term_vec) == 0) {
+    "None"
+  } else {
+    paste(term_vec, collapse = ", ")
+  }
+}
+
+get_model_terms <- function(model) {
+  attr(terms(model), "term.labels")
+}
+
+get_interaction_terms <- function(model) {
+  grep(":", get_model_terms(model), value = TRUE)
+}
+
+make_formula <- function(response_name, term_vec) {
+  reformulate(term_vec, response = response_name)
+}
+
+get_vif_table <- function(model) {
+  vif.raw <- car::vif(model)
+
+  if (is.matrix(vif.raw)) {
+    out <- data.frame(
+      Term = rownames(vif.raw),
+      VIF = vif.raw[, "GVIF"]^(1 / (2 * vif.raw[, "Df"])),
+      row.names = NULL
+    )
+  } else {
+    out <- data.frame(
+      Term = names(vif.raw),
+      VIF = as.numeric(vif.raw),
+      row.names = NULL
+    )
+  }
+
+  out[order(-out$VIF), ]
+}
+
+get_high_correlation_pairs <- function(data, terms, cutoff = 0.90) {
+  present.terms <- terms[terms %in% names(data)]
+  numeric.terms <- present.terms[vapply(data[present.terms], is.numeric, logical(1))]
+
+  if (length(numeric.terms) < 2) {
+    return(data.frame(
+      Variable_1 = character(),
+      Variable_2 = character(),
+      Correlation = numeric()
+    ))
+  }
+
+  cor.mat <- cor(data[, numeric.terms, drop = FALSE], use = "pairwise.complete.obs")
+  cor.idx <- which(abs(cor.mat) >= cutoff & upper.tri(cor.mat), arr.ind = TRUE)
+
+  if (nrow(cor.idx) == 0) {
+    return(data.frame(
+      Variable_1 = character(),
+      Variable_2 = character(),
+      Correlation = numeric()
+    ))
+  }
+
+  out <- data.frame(
+    Variable_1 = rownames(cor.mat)[cor.idx[, 1]],
+    Variable_2 = colnames(cor.mat)[cor.idx[, 2]],
+    Correlation = cor.mat[cor.idx],
+    row.names = NULL
+  )
+  out[order(-abs(out$Correlation)), ]
+}
+
+# Diagnose redundancy without removing engineered terms. VIF is useful for
+# interpretation, but it is not used as a hard pre-selection filter because
+# centered squares and interactions are correlated with their source variables
+# by construction.
+diagnose_terms_for_collinearity <- function(response_name, terms, data, corr_cutoff = 0.90) {
+  formula <- make_formula(response_name, terms)
+
+  list(
+    formula = formula,
+    terms = terms,
+    high_correlations = get_high_correlation_pairs(data, terms, cutoff = corr_cutoff),
+    final_vif = get_vif_table(lm(formula, data = data)),
+    corr_cutoff = corr_cutoff
+  )
+}
+
+format_high_correlation_table <- function(screen.result) {
+  out <- screen.result$high_correlations
+
+  if (nrow(out) == 0) {
+    return(data.frame(
+      `Variable 1` = "None above cutoff",
+      `Variable 2` = "",
+      Correlation = "",
+      check.names = FALSE
+    ))
+  }
+
+  out$Correlation <- sprintf("%.3f", out$Correlation)
+  names(out) <- c("Variable 1", "Variable 2", "Correlation")
+  out
+}
+
+format_final_vif_table <- function(screen.result, max_rows = 10) {
+  out <- head(screen.result$final_vif, max_rows)
+  out$VIF <- sprintf("%.2f", out$VIF)
+  names(out) <- c("Term", "Adjusted VIF")
+  out
+}
+
+format_screen_summary <- function(screen.result, label) {
+  data.frame(
+    Stage = label,
+    `High Correlation Pairs` = nrow(screen.result$high_correlations),
+    `Max Adjusted VIF` = sprintf("%.2f", max(screen.result$final_vif$VIF)),
+    `Terms Sent to AIC/CV` = length(screen.result$terms),
+    `Pre-AIC Removals` = "None; AIC/CV selects from full centered set",
+    check.names = FALSE
+  )
+}
+
+get_center_values <- function(data, variables) {
+  out <- lapply(variables, function(variable) {
+    mean(data[[variable]], na.rm = TRUE)
+  })
+  names(out) <- variables
+  out
+}
+
+# HousePrices engineered variables are deterministic transformations of each
+# row. Centering values are estimated on the training set and reused for test
+# rows and prediction examples to avoid leaking test-set information.
+add_house_features <- function(data, centers = NULL) {
+  data$log_lotsize <- log(data$lotsize)
+  data$lotsize_1000 <- data$lotsize / 1000
+
+  center.variables <- c(
+    "lotsize", "bedrooms", "bathrooms", "stories", "garage",
+    "log_lotsize", "lotsize_1000"
+  )
+  if (is.null(centers)) {
+    centers <- get_center_values(data, center.variables)
+  }
+
+  data$lotsize_c <- data$lotsize - centers$lotsize
+  data$bedrooms_c <- data$bedrooms - centers$bedrooms
+  data$bathrooms_c <- data$bathrooms - centers$bathrooms
+  data$stories_c <- data$stories - centers$stories
+  data$garage_c <- data$garage - centers$garage
+  data$log_lotsize_c <- data$log_lotsize - centers$log_lotsize
+  data$lotsize_1000_c <- data$lotsize_1000 - centers$lotsize_1000
+  data$lotsize_1000_c_sq <- data$lotsize_1000_c^2
+  data$bed_bath_c <- data$bedrooms_c * data$bathrooms_c
+  data$bath_story_c <- data$bathrooms_c * data$stories_c
+  data$garage_prefer_c <- data$garage_c * as.integer(data$prefer == "yes")
+  attr(data, "feature_centers") <- centers
+  data
+}
+
+house.base.terms <- c(
+  "lotsize_c", "bedrooms_c", "bathrooms_c", "stories_c", "driveway",
+  "recreation", "fullbase", "gasheat", "aircon", "garage_c", "prefer"
+)
+house.derived.terms <- c("log_lotsize_c", "lotsize_1000_c_sq")
+house.interaction.terms <- c(
+  "bed_bath_c", "bath_story_c", "garage_prefer_c",
+  "log_lotsize_c:prefer", "log_lotsize_c:aircon", "garage_c:lotsize_1000_c"
+)
+
+# CASchools engineered variables follow the same rule: split first, estimate
+# centers on training data only, then create centered nonlinear and interaction
+# terms from those training-set centers.
+add_school_features <- function(data, centers = NULL) {
+  center.variables <- c(
+    "str", "calworks", "lunch", "computer.rate",
+    "expenditure", "income", "english"
+  )
+  if (is.null(centers)) {
+    centers <- get_center_values(data, center.variables)
+  }
+
+  data$str_c <- data$str - centers$str
+  data$calworks_c <- data$calworks - centers$calworks
+  data$lunch_c <- data$lunch - centers$lunch
+  data$computer.rate_c <- data$computer.rate - centers$computer.rate
+  data$expenditure_c <- data$expenditure - centers$expenditure
+  data$income_c <- data$income - centers$income
+  data$english_c <- data$english - centers$english
+  data$income_c_sq <- data$income_c^2
+  data$lunch_c_sq <- data$lunch_c^2
+  data$english_c_sq <- data$english_c^2
+  data$low_income_pressure_c <- data$lunch_c * data$english_c
+  data$income_lunch_c <- data$income_c * data$lunch_c
+  data$str_lunch_c <- data$str_c * data$lunch_c
+  attr(data, "feature_centers") <- centers
+  data
+}
+
+schools.base.terms <- c(
+  "str_c", "calworks_c", "lunch_c", "computer.rate_c", "expenditure_c",
+  "income_c", "english_c", "grades"
+)
+schools.derived.terms <- c("income_c_sq", "lunch_c_sq", "english_c_sq")
+schools.interaction.terms <- c(
+  "low_income_pressure_c", "income_lunch_c", "str_lunch_c",
+  "lunch_c:grades", "income_c:grades", "english_c:grades", "str_c:grades"
+)
+
+# Box-Cox utilities: estimate lambda, fit a transformed response model, then
+# compare predictions after converting back to the original response scale.
+boxcox_transform <- function(y, lambda) {
+  if (abs(lambda) < 1e-8) {
+    log(y)
+  } else {
+    (y^lambda - 1) / lambda
+  }
+}
+
+boxcox_inverse <- function(z, lambda) {
+  if (abs(lambda) < 1e-8) {
+    exp(z)
+  } else {
+    base <- lambda * z + 1
+    ifelse(base > 0, base^(1 / lambda), NA_real_)
+  }
+}
+
+boxcox_profile <- function(model, lambda.seq = seq(-2, 2, by = 0.01)) {
+  profile <- MASS::boxcox(model, lambda = lambda.seq, plotit = FALSE)
+  max.loglik <- max(profile$y)
+  cutoff <- max.loglik - 0.5 * qchisq(0.95, df = 1)
+  plausible <- profile$x[profile$y >= cutoff]
+
+  list(
+    lambda = profile$x[which.max(profile$y)],
+    lower = min(plausible),
+    upper = max(plausible),
+    identity.in.interval = 1 >= min(plausible) && 1 <= max(plausible),
+    cutoff = cutoff,
+    profile = data.frame(lambda = profile$x, logLik = profile$y)
+  )
+}
+
+boxcox_smearing_predict <- function(fit, newdata, lambda) {
+  transformed.fit <- as.numeric(predict(fit, newdata = newdata))
+  transformed.residuals <- residuals(fit)
+
+  vapply(
+    transformed.fit,
+    function(value) {
+      mean(boxcox_inverse(value + transformed.residuals, lambda), na.rm = TRUE)
+    },
+    numeric(1)
+  )
+}
+
+boxcox_fit_and_evaluate <- function(model, train.data, test.data, response.name, dataset.name) {
+  profile <- boxcox_profile(model)
+  lambda <- profile$lambda
+
+  train.boxcox <- train.data
+  train.boxcox$.boxcox_response <- boxcox_transform(train.boxcox[[response.name]], lambda)
+
+  transformed.formula <- reformulate(
+    get_model_terms(model),
+    response = ".boxcox_response"
+  )
+  transformed.model <- lm(transformed.formula, data = train.boxcox)
+
+  actual <- test.data[[response.name]]
+  current.pred <- predict(model, newdata = test.data)
+  naive.pred <- boxcox_inverse(
+    as.numeric(predict(transformed.model, newdata = test.data)),
+    lambda
+  )
+  smearing.pred <- boxcox_smearing_predict(transformed.model, test.data, lambda)
+
+  comparison <- data.frame(
+    Dataset = dataset.name,
+    Model = c(
+      "Current final",
+      "Box-Cox naive back-transform",
+      "Box-Cox smearing back-transform"
+    ),
+    Lambda = c(NA, lambda, lambda),
+    Test_R2 = c(
+      feature_test_r2(actual, current.pred),
+      feature_test_r2(actual, naive.pred),
+      feature_test_r2(actual, smearing.pred)
+    ),
+    Test_RMSE = c(
+      feature_rmse(actual, current.pred),
+      feature_rmse(actual, naive.pred),
+      feature_rmse(actual, smearing.pred)
+    ),
+    Shapiro_P = c(
+      shapiro.test(residuals(model))$p.value,
+      shapiro.test(residuals(transformed.model))$p.value,
+      shapiro.test(residuals(transformed.model))$p.value
+    ),
+    BP_P = c(
+      bptest(model)$p.value,
+      bptest(transformed.model)$p.value,
+      bptest(transformed.model)$p.value
+    )
+  )
+
+  list(
+    profile = profile,
+    model = transformed.model,
+    comparison = comparison
+  )
+}
+
+plot_boxcox_profile <- function(profile, title) {
+  plot(
+    profile$profile$lambda,
+    profile$profile$logLik,
+    type = "l",
+    lwd = 2,
+    col = "#123c55",
+    xlab = "lambda",
+    ylab = "Profile log-likelihood",
+    main = title
+  )
+  abline(v = profile$lambda, col = "#0b6e4f", lwd = 2)
+  abline(v = 1, col = "#b83227", lwd = 2, lty = 2)
+  abline(h = profile$cutoff, col = "gray45", lwd = 2, lty = 3)
+  legend(
+    "bottomleft",
+    legend = c("Best lambda", "lambda = 1", "Approx. 95% cutoff"),
+    col = c("#0b6e4f", "#b83227", "gray45"),
+    lty = c(1, 2, 3),
+    lwd = 2,
+    bty = "n",
+    cex = 0.8
+  )
+}
+
+boxcox_performance_table <- function(boxcox.result) {
+  display <- boxcox.result$comparison
+  display$Lambda <- ifelse(is.na(display$Lambda), NA, round(display$Lambda, 2))
+  display$Test_R2 <- round(display$Test_R2, 4)
+  display$Test_RMSE <- round(display$Test_RMSE, 2)
+  display$Shapiro_P <- trimws(format.pval(display$Shapiro_P, digits = 3, eps = 1e-16))
+  display$BP_P <- trimws(format.pval(display$BP_P, digits = 3, eps = 1e-16))
+  names(display) <- c("Dataset", "Model", "Lambda", "Test R2", "Test RMSE", "Shapiro P", "BP P")
+  display
+}
+
+boxcox_decision_table <- function(boxcox.result, decision) {
+  data.frame(
+    `Best Lambda` = round(boxcox.result$profile$lambda, 2),
+    `Approx. 95% Lambda Interval` = paste0(
+      "[", round(boxcox.result$profile$lower, 2), ", ",
+      round(boxcox.result$profile$upper, 2), "]"
+    ),
+    `Lambda 1 In Interval` = boxcox.result$profile$identity.in.interval,
+    Decision = decision,
+    check.names = FALSE
+  )
+}
+
 # Computes a rolling 60-day statistic against the S&P 500. With stat = "beta",
 # it returns CAPM-style market sensitivity; with stat = "correlation", it
 # returns the rolling strength of market co-movement.
@@ -254,15 +631,33 @@ data("HousePrices", package = "AER")
 # compare AIC selection, CV selection, Cook filtering, bootstrap intervals, and
 # prediction intervals.
 
-# Keep a separate test set so final prediction performance is evaluated on data
-# not used for model selection, cross-validation, or Cook filtering.
-house.data <- HousePrices
-index <- sample(1:2, nrow(house.data), prob = c(.8, .2), replace = TRUE)
-house.train <- house.data[index == 1, ]
-house.test <- house.data[index == 2, ]
+# Keep a separate test set before centering so the centering constants can be
+# estimated on the training data only.
+house.raw <- HousePrices
+index <- sample(1:2, nrow(house.raw), prob = c(.8, .2), replace = TRUE)
+house.train <- house.raw[index == 1, ]
+house.test <- house.raw[index == 2, ]
 
-# Full model: starts with every available HousePrices predictor.
-house.model <- lm(price ~ ., data = house.train)
+# Create centered engineered terms after the split. The training-set centers
+# are reused for the test set and the full display data.
+house.train <- add_house_features(house.train)
+house.centers <- attr(house.train, "feature_centers")
+house.test <- add_house_features(house.test, house.centers)
+house.data <- add_house_features(house.raw, house.centers)
+
+# Diagnose the expanded candidate set before AIC/CV. This flags collinearity
+# but does not remove engineered terms, because AIC/CV should decide whether
+# the centered terms improve prediction.
+house.collinearity <- diagnose_terms_for_collinearity(
+  response_name = "price",
+  terms = c(house.base.terms, house.derived.terms, house.interaction.terms),
+  data = house.train,
+  corr_cutoff = 0.90
+)
+
+# Full model: starts with base HousePrices predictors plus all centered
+# nonlinear and interaction candidates.
+house.model <- lm(house.collinearity$formula, data = house.train)
 
 # Model-selection ladder and repeated CV: the ladder determines the candidate
 # models; CV estimates prediction error for each candidate on training folds.
@@ -310,21 +705,25 @@ house.compare <- data.frame(
 house.compare[, 4:5] <- round(house.compare[, 4:5], 4)
 house.cv.labels <- paste0("S", house.cv.summary$step_num)
 
-# Cook filtering: first run stepAIC for a practical reduced model, identify
-# influential training cases with Cook's distance, and refit after removing
-# points above the 4/n cutoff.
+# Cook filtering: first run stepAIC for a practical reduced model and identify
+# influential training cases with Cook's distance. After removing those rows,
+# rerun model selection before defining the final model.
 house.model.red <- stepAIC(house.model, direction = "both", trace = FALSE)
 house.cook <- cooks.distance(house.model.red)
 house.cutoff <- 4 / nrow(house.train)
 house.train.new <- house.train[house.cook < house.cutoff, ]
-house.model.final <- update(house.model.red, data = house.train.new)
-house.prediction <- predict(house.model.final, newdata = house.test)
 house.pred.before <- predict(house.model.red, newdata = house.test)
-house.pred.after <- predict(house.model.final, newdata = house.test)
 
-# Repeat the ladder and CV after Cook filtering. This shows whether filtering
-# changes the whole selection process, not just the final reduced model.
-house.clean.model <- lm(price ~ ., data = house.train.new)
+# Repeat the diagnostic, ladder, and CV after Cook filtering. This shows
+# whether filtering changes the whole selection process, not just the final
+# reduced model.
+house.clean.collinearity <- diagnose_terms_for_collinearity(
+  response_name = "price",
+  terms = c(house.base.terms, house.derived.terms, house.interaction.terms),
+  data = house.train.new,
+  corr_cutoff = 0.90
+)
+house.clean.model <- lm(house.clean.collinearity$formula, data = house.train.new)
 house.clean.ladder <- build_backward_ladder(house.clean.model)
 house.clean.cv <- cv_model_ladder(
   data = house.train.new,
@@ -346,6 +745,31 @@ house.clean.model.aic.best <- house.clean.ladder$models[[house.clean.aic.best.id
 house.clean.model.cv.best <- house.clean.ladder$models[[house.clean.cv.best.idx]]
 house.clean.pred.aic.best <- predict(house.clean.model.aic.best, newdata = house.test)
 house.clean.pred.cv.best <- predict(house.clean.model.cv.best, newdata = house.test)
+
+# Final HousePrices model: use the model selected after Cook filtering. If AIC
+# and CV agree, the shared post-Cook model is used. If they disagree, use the
+# post-Cook CV model because the final goal is prediction on unseen data.
+house.post.cook.same.step <- identical(
+  house.clean.ladder$steps$step[house.clean.aic.best.idx],
+  house.clean.cv.summary$step[house.clean.cv.best.idx]
+)
+house.clean.final.idx <- if (house.post.cook.same.step) {
+  house.clean.aic.best.idx
+} else {
+  house.clean.cv.best.idx
+}
+house.model.final <- if (house.post.cook.same.step) {
+  house.clean.model.aic.best
+} else {
+  house.clean.model.cv.best
+}
+house.final.selection <- if (house.post.cook.same.step) {
+  "Post-Cook AIC/CV agreement"
+} else {
+  "Post-Cook CV-selected model"
+}
+house.prediction <- predict(house.model.final, newdata = house.test)
+house.pred.after <- house.prediction
 
 # Sensitivity table: CV validation results before and after Cook filtering.
 # "AIC RMSE" means the CV RMSE at the step selected by AIC.
@@ -425,8 +849,9 @@ house.boot <- bootstrap_coef_table(house.model.final, house.train.new, B = 200)
 
 # Compact final-model summary table used in the presentation.
 house.summary <- data.frame(
-  Metric = c("Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
+  Metric = c("Selection Used", "Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
   Value = c(
+    house.final.selection,
     round(summary(house.model.final)$adj.r.squared, 4),
     round(summary(house.model.final)$sigma, 2),
     length(which(house.cook > house.cutoff)),
@@ -457,6 +882,7 @@ house.new <- data.frame(
   garage = c(0, 2),
   prefer = factor(c("no", "yes"), levels = levels(house.data$prefer))
 )
+house.new <- add_house_features(house.new, house.centers)
 
 house.conf <- predict(house.model.final, newdata = house.new, interval = "confidence")
 house.pred <- predict(house.model.final, newdata = house.new, interval = "prediction")
@@ -483,23 +909,38 @@ house.new.fit <- house.conf[, "fit"]
 house.process <- data.frame(
   Step = c(
     "Split data",
-    "Build full model",
+    "Create centered engineered terms",
+    "Diagnose collinearity",
+    "Build centered expanded full model",
     "Build model ladder",
     "Run repeated CV",
     "Compare AIC and CV",
     "Remove outliers",
+    "Rerun diagnostics and AIC/CV after Cook filtering",
     "Check residuals",
+    "Check Box-Cox transformation",
     "Bootstrap intervals",
     "Predict new homes"
   ),
   Detail = c(
     paste(nrow(house.train), "train /", nrow(house.test), "test"),
-    paste(length(attr(terms(house.model), "term.labels")), "starting predictors"),
+    paste(length(c(house.derived.terms, house.interaction.terms)), "derived/interaction candidates"),
+    paste(nrow(house.collinearity$high_correlations), "high-correlation pairs flagged; 0 pre-AIC removals"),
+    paste(length(attr(terms(house.model), "term.labels")), "centered starting predictors"),
     paste(nrow(house.ladder$steps), "nested steps"),
     "5 folds x 6 repeats",
     paste(house.compare$Step[1], "vs", house.compare$Step[2]),
     paste(length(which(house.cook > house.cutoff)), "points above Cook cutoff"),
+    paste(
+      nrow(house.clean.collinearity$high_correlations),
+      "post-Cook high-correlation pairs;",
+      house.clean.ladder$steps$step[house.clean.aic.best.idx],
+      "AIC and",
+      house.clean.cv.summary$step[house.clean.cv.best.idx],
+      "CV"
+    ),
     "QQ, BP, and DW tests",
+    "profile plot and original-scale test metrics",
     "200 bootstrap resamples",
     "2 cases with CI and PI"
   )
@@ -514,23 +955,37 @@ data("CASchools", package = "AER")
 # Create modeling variables from the raw AER dataset. Score is the average of
 # reading and math. str is the student-teacher ratio. computer.rate scales
 # computers by enrollment so the variable is comparable across district sizes.
-schools.data <- CASchools
-schools.data$score <- (schools.data$read + schools.data$math) / 2
-schools.data$str <- schools.data$students / schools.data$teachers
-schools.data$computer.rate <- schools.data$computer / schools.data$students
-schools.data <- schools.data[, c(
+schools.raw <- CASchools
+schools.raw$score <- (schools.raw$read + schools.raw$math) / 2
+schools.raw$str <- schools.raw$students / schools.raw$teachers
+schools.raw$computer.rate <- schools.raw$computer / schools.raw$students
+schools.raw <- schools.raw[, c(
   "score", "str", "calworks", "lunch", "computer.rate",
   "expenditure", "income", "english", "grades"
 )]
 
-# Same 80/20 workflow as HousePrices: training data for selection and fitting,
-# held-out test data for final prediction checks.
-index <- sample(1:2, nrow(schools.data), prob = c(.8, .2), replace = TRUE)
-schools.train <- schools.data[index == 1, ]
-schools.test <- schools.data[index == 2, ]
+# Same 80/20 workflow as HousePrices: split first, estimate centering constants
+# on training data only, then reuse those constants for test and display data.
+index <- sample(1:2, nrow(schools.raw), prob = c(.8, .2), replace = TRUE)
+schools.train <- schools.raw[index == 1, ]
+schools.test <- schools.raw[index == 2, ]
+schools.train <- add_school_features(schools.train)
+schools.centers <- attr(schools.train, "feature_centers")
+schools.test <- add_school_features(schools.test, schools.centers)
+schools.data <- add_school_features(schools.raw, schools.centers)
 
-# Full CASchools model and AIC-based backward ladder.
-schools.model <- lm(score ~ ., data = schools.train)
+# Diagnose the expanded candidate set before AIC/CV. No term is removed here;
+# the diagnostic just documents redundancy after centering.
+schools.collinearity <- diagnose_terms_for_collinearity(
+  response_name = "score",
+  terms = c(schools.base.terms, schools.derived.terms, schools.interaction.terms),
+  data = schools.train,
+  corr_cutoff = 0.90
+)
+
+# Full CASchools model starts with base predictors plus all centered nonlinear
+# and interaction candidates so AIC/CV can evaluate those terms.
+schools.model <- lm(schools.collinearity$formula, data = schools.train)
 schools.ladder <- build_backward_ladder(schools.model)
 
 # Repeated CV evaluates every ladder step on validation folds from the training
@@ -578,20 +1033,25 @@ schools.compare[, 4:5] <- round(schools.compare[, 4:5], 4)
 schools.cv.labels <- paste0("S", schools.cv.summary$step_num)
 
 # Cook filtering for CASchools follows the same logic as HousePrices: identify
-# influential training districts, remove them from the training fit, and keep
-# the original test set unchanged.
+# influential training districts, remove them from the training fit, rerun
+# selection on the filtered training data, and keep the original test set
+# unchanged.
 schools.model.red <- stepAIC(schools.model, direction = "both", trace = FALSE)
 schools.cook <- cooks.distance(schools.model.red)
 schools.cutoff <- 4 / nrow(schools.train)
 schools.train.new <- schools.train[schools.cook < schools.cutoff, ]
-schools.model.final <- update(schools.model.red, data = schools.train.new)
-schools.prediction <- predict(schools.model.final, newdata = schools.test)
 schools.pred.before <- predict(schools.model.red, newdata = schools.test)
-schools.pred.after <- predict(schools.model.final, newdata = schools.test)
 
-# Rerun model-selection and CV after Cook filtering so the sensitivity analysis
-# compares full before/after selection curves, not only one final model.
-schools.clean.model <- lm(score ~ ., data = schools.train.new)
+# Rerun collinearity diagnostics, model-selection, and CV after Cook filtering
+# so the sensitivity analysis compares full before/after selection curves, not
+# only one final model.
+schools.clean.collinearity <- diagnose_terms_for_collinearity(
+  response_name = "score",
+  terms = c(schools.base.terms, schools.derived.terms, schools.interaction.terms),
+  data = schools.train.new,
+  corr_cutoff = 0.90
+)
+schools.clean.model <- lm(schools.clean.collinearity$formula, data = schools.train.new)
 schools.clean.ladder <- build_backward_ladder(schools.clean.model)
 schools.clean.cv <- cv_model_ladder(
   data = schools.train.new,
@@ -613,6 +1073,31 @@ schools.clean.model.aic.best <- schools.clean.ladder$models[[schools.clean.aic.b
 schools.clean.model.cv.best <- schools.clean.ladder$models[[schools.clean.cv.best.idx]]
 schools.clean.pred.aic.best <- predict(schools.clean.model.aic.best, newdata = schools.test)
 schools.clean.pred.cv.best <- predict(schools.clean.model.cv.best, newdata = schools.test)
+
+# Final CASchools model: use the model selected after Cook filtering. If AIC and
+# CV agree, that shared post-Cook model becomes final. If not, use the post-Cook
+# CV model for the same predictive reason used in HousePrices.
+schools.post.cook.same.step <- identical(
+  schools.clean.ladder$steps$step[schools.clean.aic.best.idx],
+  schools.clean.cv.summary$step[schools.clean.cv.best.idx]
+)
+schools.clean.final.idx <- if (schools.post.cook.same.step) {
+  schools.clean.aic.best.idx
+} else {
+  schools.clean.cv.best.idx
+}
+schools.model.final <- if (schools.post.cook.same.step) {
+  schools.clean.model.aic.best
+} else {
+  schools.clean.model.cv.best
+}
+schools.final.selection <- if (schools.post.cook.same.step) {
+  "Post-Cook AIC/CV agreement"
+} else {
+  "Post-Cook CV-selected model"
+}
+schools.prediction <- predict(schools.model.final, newdata = schools.test)
+schools.pred.after <- schools.prediction
 
 # Sensitivity table for validation RMSE before/after Cook filtering.
 schools.sensitivity <- data.frame(
@@ -689,8 +1174,9 @@ schools.boot <- bootstrap_coef_table(schools.model.final, schools.train.new, B =
 
 # Compact summary objects for final-model slides.
 schools.summary <- data.frame(
-  Metric = c("Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
+  Metric = c("Selection Used", "Adjusted R2", "Residual s", "Outliers Removed", "Test RMSE", "Test R2"),
   Value = c(
+    schools.final.selection,
     round(summary(schools.model.final)$adj.r.squared, 4),
     round(summary(schools.model.final)$sigma, 2),
     length(which(schools.cook > schools.cutoff)),
@@ -717,6 +1203,7 @@ schools.new <- data.frame(
   english = c(5, 30),
   grades = factor(c("KK-06", "KK-08"), levels = levels(schools.data$grades))
 )
+schools.new <- add_school_features(schools.new, schools.centers)
 
 # CIs/PIs for the scenario table.
 schools.conf <- predict(
@@ -749,23 +1236,38 @@ schools.new.fit <- schools.conf[, "fit"]
 schools.process <- data.frame(
   Step = c(
     "Split data",
-    "Build full model",
+    "Create centered engineered terms",
+    "Diagnose collinearity",
+    "Build centered expanded full model",
     "Build model ladder",
     "Run repeated CV",
     "Compare AIC and CV",
     "Remove outliers",
+    "Rerun diagnostics and AIC/CV after Cook filtering",
     "Check residuals",
+    "Check Box-Cox transformation",
     "Bootstrap intervals",
     "Predict districts"
   ),
   Detail = c(
     paste(nrow(schools.train), "train /", nrow(schools.test), "test"),
-    paste(length(attr(terms(schools.model), "term.labels")), "starting predictors"),
+    paste(length(c(schools.derived.terms, schools.interaction.terms)), "derived/interaction candidates"),
+    paste(nrow(schools.collinearity$high_correlations), "high-correlation pairs flagged; 0 pre-AIC removals"),
+    paste(length(attr(terms(schools.model), "term.labels")), "centered starting predictors"),
     paste(nrow(schools.ladder$steps), "nested steps"),
     "5 folds x 6 repeats",
     paste(schools.compare$Step[1], "vs", schools.compare$Step[2]),
     paste(length(which(schools.cook > schools.cutoff)), "points above Cook cutoff"),
+    paste(
+      nrow(schools.clean.collinearity$high_correlations),
+      "post-Cook high-correlation pairs;",
+      schools.clean.ladder$steps$step[schools.clean.aic.best.idx],
+      "AIC and",
+      schools.clean.cv.summary$step[schools.clean.cv.best.idx],
+      "CV"
+    ),
     "QQ, BP, and DW tests",
+    "profile plot and original-scale test metrics",
     "200 bootstrap resamples",
     "2 cases with CI and PI"
   )
@@ -991,24 +1493,30 @@ kable(
     Step = c(
       "1. Describe data",
       "2. Split Train/Test",
-      "3. Build full model",
-      "4. Build CV ladder",
-      "5. Compare AIC vs CV",
-      "6. Remove outliers",
-      "7. Check sensitivity",
-      "8. Check residuals",
-      "9. Bootstrap intervals",
-      "10. Predict new cases"
+      "3. Create centered engineered terms",
+      "4. Diagnose collinearity",
+      "5. Build expanded full model",
+      "6. Build CV ladder",
+      "7. Compare AIC vs CV",
+      "8. Remove outliers",
+      "9. Rerun AIC/CV after Cook filtering",
+      "10. Check residuals",
+      "11. Check Box-Cox transformation",
+      "12. Bootstrap intervals",
+      "13. Predict new cases"
     ),
     Method = c(
       "response, predictors, missingness",
       "80% / 20%",
-      "lm()",
+      "centered nonlinear terms and interactions",
+      "correlation/VIF diagnostics only; no pre-AIC removals",
+      "lm() with base terms plus all engineered candidates",
       "nested backward models + repeated CV",
       "AIC-optimal vs CV-optimal",
       "Cook's distance",
-      "before vs after Cook filtering",
+      "post-Cook diagnostics and model selection",
       "QQ, BP, and DW tests",
+      "profile likelihood plus original-scale test metrics",
       "bootstrap coefficient CIs",
       "confidence and prediction intervals"
     )
@@ -1021,13 +1529,15 @@ kable(
 ## HousePrices: Dataset Snapshot
 
 .pull-left[
-- `546` observations and `12` variables
+- `546` observations and `12` original variables
 - Response: `price`
 - `lotsize`: lot size of the house
 - `bedrooms`, `bathrooms`, `stories`, `garage`: size/layout features
 - `driveway`, `recreation`, `fullbase`, `gasheat`, `aircon`, `prefer`:
   yes/no housing amenities or location preference indicators
 - Missing values: `0`
+- Centered versions, log lot size, squared lot size, and interactions
+  are created after the train/test split.
 - The mix of structural and amenity variables makes the dataset useful
   for both interpretation and prediction.
 ]
@@ -1037,7 +1547,7 @@ kable(
 # Simple dataset-audit table: row count, variable count, and missingness.
 kable(
   data.frame(
-    Item = c("Rows", "Columns", "Missing"),
+    Item = c("Rows", "Columns after engineering", "Missing"),
     Value = c(nrow(house.data), ncol(house.data), sum(is.na(house.data)))
   ),
   row.names = FALSE
@@ -1104,7 +1614,37 @@ kable(house.process, row.names = FALSE)
 ```
 
 - The ordering matters: choose the model on training data, check
-  influential cases, then touch the held-out test set only once.
+  influential cases, rerun selection after filtering, then touch the
+  held-out test set only once.
+- Engineered terms and interactions are created before model selection,
+  so AIC/CV can reject them instead of us deciding manually.
+
+---
+
+class: small-table compact
+
+## HousePrices: VIF and Correlation Diagnostics
+
+```{r}
+# VIF and pairwise correlation are diagnostics. We do not use them as a hard
+# filter because centered interaction and squared terms are supposed to remain
+# related to their source variables.
+kable(format_screen_summary(house.collinearity, "Initial training data"), row.names = FALSE)
+kable(format_screen_summary(house.clean.collinearity, "Cook-filtered training data"), row.names = FALSE)
+```
+
+```{r}
+# Show the largest adjusted VIFs after Cook filtering, because that is the
+# candidate set used by the final post-Cook selection ladder.
+kable(format_final_vif_table(house.clean.collinearity, max_rows = 6), row.names = FALSE)
+```
+
+- VIF is used as a warning about coefficient stability, not as an
+  automatic deletion rule.
+- The expanded model still goes into AIC/CV intact because interactions
+  and squared terms are correlated with their ingredients by design.
+- Cook filtering is repeated before the final ladder, so the VIF picture
+  matches the data used for the reported model.
 
 ---
 
@@ -1344,10 +1884,10 @@ class: small-table compact
 
 `r house.removed.text`
 
-- The final model keeps the variables that most directly describe usable
-  house characteristics and preferred location.
-- Because no term drops from the full model, the main housing features
-  appear to add complementary signal rather than redundant overlap.
+- "Removed" now means removed from the expanded candidate model, which
+  includes centered base terms plus derived and interaction candidates.
+- The final model is selected after Cook filtering, so the reported
+  terms reflect both influence screening and the post-Cook AIC/CV ladder.
 
 ```{r}
 # Final-model metrics after Cook filtering.
@@ -1369,8 +1909,52 @@ kable(house.key, row.names = FALSE)
   and preferred location all move fitted price upward when the other
   features are held fixed.
 - The coefficient table shows that the strongest evidence sits in
-  structural and amenity terms rather than in one single dominant
-  feature.
+  structural, amenity, and retained engineered terms rather than in one
+  single dominant feature.
+
+---
+
+class: tiny-table compact small-title
+
+## HousePrices: Engineered Terms Kept
+
+```{r}
+# Show every engineered HousePrices candidate that entered the expanded full
+# model, then mark whether the post-Cook final model kept it.
+house.engineered.pool <- c(house.derived.terms, house.interaction.terms)
+house.final.terms <- get_model_terms(house.model.final)
+house.selected.derived <- intersect(house.derived.terms, house.final.terms)
+house.selected.interactions <- intersect(house.interaction.terms, house.final.terms)
+
+house.engineered.status <- data.frame(
+  Term = house.engineered.pool,
+  Type = c(
+    rep("Derived", length(house.derived.terms)),
+    rep("Interaction", length(house.interaction.terms))
+  ),
+  Meaning = c(
+    "Centered natural log of lot size.",
+    "Squared centered lot size in thousands.",
+    "Centered bedrooms multiplied by centered bathrooms.",
+    "Centered bathrooms multiplied by centered stories.",
+    "Centered garage spaces multiplied by preferred-neighborhood indicator.",
+    "Centered log lot size slope allowed to differ by preferred-neighborhood status.",
+    "Centered log lot size slope allowed to differ by air-conditioning status.",
+    "Centered garage-space effect allowed to vary by centered lot size."
+  ),
+  `Kept In Final Model` = ifelse(house.engineered.pool %in% house.final.terms, "Yes", "No"),
+  check.names = FALSE
+)
+
+kable(house.engineered.status, row.names = FALSE)
+```
+
+- AIC/CV considered these terms from the start; they were not pasted on
+  after the final model was chosen.
+- Retained derived terms mean the house-price relationship is not purely
+  linear in the original variables.
+- Retained interactions mean at least one housing feature changes slope
+  depending on another feature or amenity.
 
 ---
 
@@ -1403,6 +1987,66 @@ kable(house.diag, row.names = FALSE)
 
 - The residual checks do not show a single breakdown large enough to
   undermine the model for the main inference and prediction goals here.
+
+---
+
+class: small-table plot-slide compact
+
+## HousePrices: Box-Cox Response Check
+
+```{r fig.width=7.5, fig.height=4.2}
+# Box-Cox profiles possible response transformations. Lambda = 1 corresponds
+# to no transformation, so its location relative to the 95% cutoff determines
+# whether the profile plot gives transformation evidence.
+house.boxcox <- boxcox_fit_and_evaluate(
+  house.model.final,
+  house.train.new,
+  house.test,
+  "price",
+  "HousePrices"
+)
+
+plot_boxcox_profile(house.boxcox$profile, "HousePrices Box-Cox profile")
+```
+
+```{r}
+# Compare on the original price scale so the transformed-response model is not
+# rewarded just for changing units.
+kable(boxcox_decision_table(
+  house.boxcox,
+  ifelse(
+    house.boxcox$profile$identity.in.interval,
+    "Keep original price scale; lambda = 1 remains plausible.",
+    "Report as sensitivity evidence; lambda = 1 is outside the profile interval."
+  )
+), row.names = FALSE)
+```
+
+- The profile peaks near lambda `r round(house.boxcox$profile$lambda, 2)`;
+  lambda = 1 is `r ifelse(house.boxcox$profile$identity.in.interval, "inside", "outside")`
+  the approximate 95% interval.
+- We keep the original-scale model as the main result when interpretability
+  and held-out performance are comparable; Box-Cox is the assumption
+  sensitivity check.
+
+---
+
+class: small-table compact
+
+## HousePrices: Box-Cox Test Metrics
+
+```{r}
+# These rows compare final-model predictions on the held-out test set after
+# converting any Box-Cox prediction back to dollar scale.
+kable(boxcox_performance_table(house.boxcox), row.names = FALSE)
+```
+
+- The comparison is made on the original price scale, so RMSE remains
+  interpretable as average dollar prediction error.
+- The smearing version corrects the back-transform for residual spread
+  on the transformed scale.
+- We treat Box-Cox as a sensitivity model unless it clearly improves
+  held-out RMSE and keeps interpretation acceptable.
 
 ---
 
@@ -1543,7 +2187,7 @@ legend(
 ## CASchools: Dataset Snapshot
 
 .pull-left[
-- `420` observations and `9` analysis variables
+- `420` observations and `9` original analysis variables
 - Response: average test score `score`
 - `str`: students per teacher
 - `calworks`: percent of students on CalWORKs
@@ -1553,6 +2197,8 @@ legend(
 - `grades`: district grade-span category; one fitted indicator is
   `gradesKK-08` for K-8 districts
 - Missing values: `0`
+- Centered variables, squared terms, and socioeconomic interactions are
+  created after the train/test split.
 - The covariates mix school resources with student-composition measures,
   so the model is mainly explanatory rather than causal.
 ]
@@ -1562,7 +2208,7 @@ legend(
 # Simple dataset-audit table for the transformed CASchools analysis data.
 kable(
   data.frame(
-    Item = c("Rows", "Columns", "Missing"),
+    Item = c("Rows", "Columns after engineering", "Missing"),
     Value = c(nrow(schools.data), ncol(schools.data), sum(is.na(schools.data)))
   ),
   row.names = FALSE
@@ -1630,6 +2276,34 @@ kable(schools.process, row.names = FALSE)
 
 - The main question is whether school-score variation is driven more by
   student composition than by resource variables.
+- Engineered socioeconomic terms are included before AIC/CV, so nonlinear
+  and interaction patterns must earn their place in the selected model.
+
+---
+
+class: small-table compact
+
+## CASchools: VIF and Correlation Diagnostics
+
+```{r}
+# Correlation and VIF show redundancy risk in the expanded school-score
+# candidate set. They are diagnostics only, not a pre-AIC filter.
+kable(format_screen_summary(schools.collinearity, "Initial training data"), row.names = FALSE)
+kable(format_screen_summary(schools.clean.collinearity, "Cook-filtered training data"), row.names = FALSE)
+```
+
+```{r}
+# Final VIFs are shown after Cook filtering because that is the training data
+# used to build the reported final model.
+kable(format_final_vif_table(schools.clean.collinearity, max_rows = 6), row.names = FALSE)
+```
+
+- Higher VIFs are expected when socioeconomic variables, squares, and
+  interactions describe overlapping district conditions.
+- We document the redundancy, then let AIC/CV decide whether any
+  engineered term improves prediction enough to keep.
+- This avoids deleting interaction terms just because they are naturally
+  correlated with the variables that created them.
 
 ---
 
@@ -1854,11 +2528,57 @@ kable(schools.key, row.names = FALSE)
 - `gradesKK-08` is kept in the pooled model because it captures a real
   district-type difference; dropping it would likely push that effect
   into the other coefficients.
-- The district-type extensions test that choice directly and find little
-  evidence that district type changes the slopes of the shared
-  predictors.
-- Once poverty proxies and district type are in the model, extra
-  resource variables add much less explanatory power.
+- The model-selection process also saw squared and interaction terms, so
+  omitted engineered terms are evidence that their extra complexity did
+  not improve the post-Cook ladder enough.
+- Once poverty proxies and district type are in the model, extra resource
+  variables add much less explanatory power.
+
+---
+
+class: tiny-table compact small-title
+
+## CASchools: Engineered Terms Kept
+
+```{r}
+# Show the engineered CASchools candidates and whether they survived the final
+# post-Cook model-selection process.
+schools.engineered.pool <- c(schools.derived.terms, schools.interaction.terms)
+schools.final.terms <- get_model_terms(schools.model.final)
+schools.selected.derived <- intersect(schools.derived.terms, schools.final.terms)
+schools.selected.interactions <- intersect(schools.interaction.terms, schools.final.terms)
+
+schools.engineered.status <- data.frame(
+  Term = schools.engineered.pool,
+  Type = c(
+    rep("Derived", length(schools.derived.terms)),
+    rep("Interaction", length(schools.interaction.terms))
+  ),
+  Meaning = c(
+    "Squared centered district income.",
+    "Squared centered subsidized-lunch percentage.",
+    "Squared centered English-learner percentage.",
+    "Centered lunch percentage multiplied by centered English-learner percentage.",
+    "Centered income multiplied by centered lunch percentage.",
+    "Centered student-teacher ratio multiplied by centered lunch percentage.",
+    "Centered lunch slope allowed to differ by district grade span.",
+    "Centered income slope allowed to differ by district grade span.",
+    "Centered English-learner slope allowed to differ by district grade span.",
+    "Centered student-teacher-ratio slope allowed to differ by district grade span."
+  ),
+  `Kept In Final Model` = ifelse(schools.engineered.pool %in% schools.final.terms, "Yes", "No"),
+  check.names = FALSE
+)
+
+kable(schools.engineered.status, row.names = FALSE)
+```
+
+- CASchools is the stronger case for socioeconomic nonlinearities because
+  poverty, income, and English-learner share overlap in the raw data.
+- Retained derived or interaction terms mean those patterns explain
+  score variation beyond the original centered main effects.
+- Rejected engineered terms are still useful: they show AIC/CV did not
+  need every possible curve or district-specific slope.
 
 ---
 
@@ -1891,6 +2611,64 @@ kable(schools.diag, row.names = FALSE)
 - The residual diagnostics are acceptable for this project; the larger
   interpretive question is coefficient meaning, not obvious model
   failure.
+
+---
+
+class: small-table plot-slide compact
+
+## CASchools: Box-Cox Response Check
+
+```{r fig.width=7.5, fig.height=4.2}
+# For CASchools, Box-Cox checks whether transforming the average score response
+# materially improves assumptions. Lambda = 1 means keeping the original score
+# scale.
+schools.boxcox <- boxcox_fit_and_evaluate(
+  schools.model.final,
+  schools.train.new,
+  schools.test,
+  "score",
+  "CASchools"
+)
+
+plot_boxcox_profile(schools.boxcox$profile, "CASchools Box-Cox profile")
+```
+
+```{r}
+# The decision is based on the profile interval plus whether original-scale
+# held-out performance changes enough to justify harder interpretation.
+kable(boxcox_decision_table(
+  schools.boxcox,
+  ifelse(
+    schools.boxcox$profile$identity.in.interval,
+    "Keep original score scale; lambda = 1 remains plausible.",
+    "Use/report Box-Cox as sensitivity evidence; lambda = 1 is outside the profile interval."
+  )
+), row.names = FALSE)
+```
+
+- The profile peaks near lambda `r round(schools.boxcox$profile$lambda, 2)`;
+  lambda = 1 is `r ifelse(schools.boxcox$profile$identity.in.interval, "inside", "outside")`
+  the approximate 95% interval.
+- Because test score is naturally interpretable, Box-Cox would need clear
+  diagnostic and prediction gains before replacing the original response.
+
+---
+
+class: small-table compact
+
+## CASchools: Box-Cox Test Metrics
+
+```{r}
+# Compare original-scale held-out performance for the current final model and
+# the Box-Cox alternatives.
+kable(boxcox_performance_table(schools.boxcox), row.names = FALSE)
+```
+
+- RMSE is still measured in test-score points after back-transforming.
+- If the Box-Cox rows do not meaningfully improve held-out RMSE, the
+  original score scale is easier to defend in presentation.
+- The diagnostic value is still useful because it shows we checked the
+  response-transformation assumption rather than ignoring it.
 
 ---
 
@@ -2507,12 +3285,21 @@ class: center, middle, inverse
 
 # Final Takeaways
 
-- `HousePrices`: the best CV step is `S1`, and Cook filtering improves
-  the whole validation ladder while keeping house-price prediction
-  strong.
-- `CASchools`: AIC and CV agree on the same reduced step, and the final
-  model links stronger scores with lower poverty measures and higher
-  district income.
+- `HousePrices`: centered derived and interaction candidates enter before
+  AIC/CV; the final post-Cook model uses
+  `r house.clean.ladder$steps$step[house.clean.final.idx]` and keeps
+  `r collapse_terms(house.selected.derived)` as derived terms plus
+  `r collapse_terms(house.selected.interactions)` as interactions.
+- `HousePrices`: VIF is documented but not used as a pre-filter, and
+  Box-Cox is treated as
+  `r ifelse(house.boxcox$profile$identity.in.interval, "a check supporting the original price scale", "sensitivity evidence for a transformed response")`.
+- `CASchools`: the final post-Cook model uses
+  `r schools.clean.ladder$steps$step[schools.clean.final.idx]`, keeps
+  `r collapse_terms(schools.selected.derived)` as derived terms and
+  `r collapse_terms(schools.selected.interactions)` as interactions, and
+  still points primarily to poverty, income, and district type.
+- `CASchools`: Box-Cox is
+  `r ifelse(schools.boxcox$profile$identity.in.interval, "not strong enough to replace the original score scale", "useful sensitivity evidence but harder to explain than the original score scale")`.
 - Finance: the six stocks occupy different risk-return positions, show
   different market linkage to the S&P 500, and that linkage changes over
   time in the rolling beta and rolling correlation plots.
