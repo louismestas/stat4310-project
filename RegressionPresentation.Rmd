@@ -1769,9 +1769,11 @@ class: small-table plot-slide
 ## HousePrices: CV Ladder Before and After Cook Filtering
 
 ```{r fig.width=9.2, fig.height=4.6}
-# Compare CV behavior before and after Cook filtering using the same y-axis.
-# Left/right boxplots show fold-level RMSE; the middle plot overlays means.
 par(mfrow = c(1, 3), mar = c(7, 4.2, 3.5, 1))
+# Put 3 plots side by side:
+#   Left: CV results BEFORE filtering
+#   Middle: overlay of average errors before vs after
+#   Right: CV results AFTER filtering
 
 boxplot(
   RMSE ~ factor(step_num, labels = house.cv.labels),
@@ -1783,9 +1785,19 @@ boxplot(
   ylim = house.cv.ylim,
   main = "Before Cook filtering"
 )
+# Each box here shows the spread of prediction errors (RMSE) for a given model step,
+# based on repeated cross-validation BEFORE we remove influential sales.
+# Lower boxes mean better (more accurate) prediction.
+
 lines(seq_len(nrow(house.cv.summary)), house.cv.summary$RMSE, col = "#123c55", lwd = 2)
 points(seq_len(nrow(house.cv.summary)), house.cv.summary$RMSE, pch = 16, col = "#123c55")
+# Overlay the average RMSE for each step as a connected line with points.
+
+
 abline(h = house.aic.cv.rmse, col = "#b83227", lty = 2, lwd = 2)
+# Horizontal dashed line at the RMSE of the model step chosen by AIC.
+# This lets us see how that chosen model compares to others.
+
 legend(
   "topleft",
   legend = c("Mean CV RMSE", "AIC-selected step"),
@@ -1796,6 +1808,8 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Add a simple legend so the audience knows what the line and dashed line mean.
+
 
 plot(
   house.cv.summary$step_num,
@@ -1810,6 +1824,8 @@ plot(
   ylim = house.cv.ylim,
   main = "Mean CV RMSE overlay"
 )
+# Middle plot: just the mean RMSE for each model step BEFORE filtering.
+
 lines(
   house.clean.cv.summary$step_num,
   house.clean.cv.summary$RMSE,
@@ -1818,9 +1834,16 @@ lines(
   lwd = 2,
   col = "#0b6e4f"
 )
+# Add the AFTER-filtering mean RMSE as a second line.
+# Seeing the green line lower than the gray line shows better prediction after filtering.
+
 abline(h = house.aic.cv.rmse, col = "gray40", lty = 2, lwd = 2)
 abline(h = house.clean.aic.cv.rmse, col = "#0b6e4f", lty = 2, lwd = 2)
+# Dashed lines show the RMSEs for the AIC-chosen step before and after filtering.
+
 axis(1, at = house.cv.summary$step_num, labels = house.cv.labels, las = 2, cex.axis = 0.8)
+# Add readable labels for each step on the x-axis.
+
 legend(
   "topleft",
   legend = c("Before Cook", "After Cook", "Before AIC RMSE", "After AIC RMSE"),
@@ -1831,6 +1854,7 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Legend explains which line/point style is which.
 
 boxplot(
   RMSE ~ factor(step_num, labels = house.clean.cv.labels),
@@ -1842,6 +1866,9 @@ boxplot(
   ylim = house.cv.ylim,
   main = "After Cook filtering"
 )
+# Right plot: boxplots of RMSE for each step AFTER removing influential sales.
+# We can compare these directly to the left plot to see if performance improved.
+
 lines(seq_len(nrow(house.clean.cv.summary)), house.clean.cv.summary$RMSE, col = "#123c55", lwd = 2)
 points(seq_len(nrow(house.clean.cv.summary)), house.clean.cv.summary$RMSE, pch = 16, col = "#123c55")
 abline(h = house.clean.aic.cv.rmse, col = "#b83227", lty = 2, lwd = 2)
@@ -1855,8 +1882,12 @@ legend(
   bty = "n",
   cex = 0.8
 )
+# Again we show the average RMSE per step and the AIC-chosen step’s error.
+# The important visual is: the whole set of boxes shifts downward after filtering.
 
 par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
+# Reset plotting layout back to the normal single-plot view.
+
 ```
 
 - The whole ladder shifts down after filtering, so the influential cases
