@@ -22,20 +22,23 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 
-library(AER)
-library(MASS)
-library(car)
-library(lmtest)
-library(ModelMetrics)
-library(broom)
-library(knitr)
-library(quantmod)
+# Loading Necessary Libraries
+library(AER)   # for datasets and econometric functions
+library(MASS)  # for stepAIC function
+library(car)   # for diagnostic tests
+library(lmtest) # for diagnostic tests
+library(ModelMetrics) # for MSE, RMSE, MAE
+library(broom) # for tidy model summaries
+library(knitr) # for kable function
+library(quantmod) # for financial data handling
 
+# Set seed for reproducibility
 set.seed(4310)
 
+# Helper functions for metrics, diagnostics, term tables, and model building
 get_metrics <- function(actual, predicted) {
   data.frame(
-    MSE = mse(predicted, actual),
+    MSE = mse(predicted, actual), 
     RMSE = rmse(predicted, actual),
     MAE = mae(predicted, actual),
     Test_R2 = 1 - sum((actual - predicted)^2) /
