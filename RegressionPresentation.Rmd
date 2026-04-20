@@ -33,8 +33,11 @@ library(broom)          # Tidy model output — tidy(), glance(), augment() for 
 library(knitr)          # R Markdown rendering — kable() for formatted tables
 library(quantmod)       # Quantitative finance — getSymbols() to pull NYSE/S&P 500 price data
 
+# Set a consistent seed for reproducibility across all random processes
 set.seed(4310)
 
+# ── Custom Functions ─────────────────────────────────────────────────────────
+# Computes MSE, RMSE, MAE, and out-of-sample R² for a set of actual vs. predicted values
 get_metrics <- function(actual, predicted) {
   data.frame(
     MSE = mse(predicted, actual),
@@ -45,6 +48,8 @@ get_metrics <- function(actual, predicted) {
   )
 }
 
+# Runs Shapiro-Wilk (normality), Breusch-Pagan (constant variance), and
+# Durbin-Watson (independence) tests; returns a tidy p-value table
 get_diag <- function(model) {
   data.frame(
     Test = c("Shapiro-Wilk", "Breusch-Pagan", "Durbin-Watson"),
@@ -56,6 +61,8 @@ get_diag <- function(model) {
   )
 }
 
+# Extracts non-intercept coefficients from a model, sorts by p-value (most
+# significant first), and formats estimates and p-values for display
 get_term_table <- function(model) {
   out <- tidy(model)
   out <- out[out$term != "(Intercept)", c("term", "estimate", "p.value")]
@@ -66,6 +73,7 @@ get_term_table <- function(model) {
   rownames(out) <- NULL
   out
 }
+
 
 format_test_rmse <- function(aic_step, cv_step, aic_rmse, cv_rmse) {
   if (identical(aic_step, cv_step)) {
