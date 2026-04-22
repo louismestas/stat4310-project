@@ -26,7 +26,7 @@ stocks benchmarked against the S&P 500.
 ---
 
 ## Repo structure
-
+**NOTE:** Regression_Presentation_R1.qmd is the latest revision of the presentation html file. 
 ```
 stat4310-project/
 ├── RegressionPresentation.Rmd # Main slide deck source
