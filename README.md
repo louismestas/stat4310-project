@@ -3,7 +3,7 @@
 **Authors:** Thomas Linden, Louis Mestas, Luis Garcia, Emanuel Padilla, Eugene Kazi, Edgar Pineda
 
 ## Contribution Edits
-To earn credit for your contribution, please make edits to the `RegressionPresentation.Rmd` file and include the following comment format in your code where you made changes:
+To earn credit for your contribution, please make edits to the `Regression_Presentation_R1.qmd`, formerly `RegressionPresentation.Rmd` file and include the following comment format in your code where you made changes:
 
 To find issues that need to be resolve search code for the following keywords:
 
